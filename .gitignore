@@ -131,3 +131,7 @@ dmypy.json
 
 # idea workspace
 .idea/
+
+# files that should not be pushed (privacy)
+meter.json
+
