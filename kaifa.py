@@ -25,6 +25,7 @@ class Constants:
     config_file = "meter.json"
     frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
     frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
+    export_format_solarview = "SOLARVIEW"
 
 
 class Config:
@@ -33,8 +34,8 @@ class Config:
 
     def load(self):
         try:
-            f = open(self._file, "r")
-            self._config = json.load(f)
+            with open(self._file, "r") as f:
+                self._config = json.load(f)
         except Exception as e:
             print("Error loading config file {}".format(self._file))
             return False
@@ -60,9 +61,58 @@ class Config:
 
     def get_key_hex_string(self):
         return self._config["key_hex_string"]
+
     def get_interval(self):
         return self._config["interval"]
 
+    def get_export_format(self):
+        if not "export_format" in self._config:
+            return None
+        else:
+            return self._config["export_format"]
+
+    def get_export_file_abspath(self):
+        if not "export_file_abspath" in self._config:
+            return None
+        else:
+            return self._config["export_file_abspath"]
+
+class Obis:
+    OBIS_1_8_0 = b'0100010800ff'   # Bytecode of Positive active energy (A+) total [Wh]
+    OBIS_1_8_0_S = '1.8.0'         # String of Positive active energy (A+) total [Wh]
+    OBIS_2_8_0 = b'0100020800ff'   # Bytecode of Negative active energy (A-) total [Wh]
+    OBIS_2_8_0_S = '2.8.0'         # String of Negative active energy (A-) total [Wh]
+
+
+
+class Exporter:
+    def __init__(self, file, exp_format):
+        self._file = file
+        self._format = exp_format
+        self._export_map = {}
+
+    def set_value(self, obis_string, value):
+        self._export_map[obis_string] = value
+
+    def _write_out_solarview(self, file):
+        file.write("/?!\n")       # Start bytes
+        file.write("/KAIFA\n")    # Meter ID
+
+        for key in self._export_map.keys():
+            print(key)
+            print(self._export_map[key])
+            # e.g. 1.8.0(005305.034*kWh)
+            file.write("{}({:010.3F}*kWh)\n".format(key, self._export_map[key]))
+
+        file.write("!\n")         # End byte
+
+    def write_out(self):
+        try:
+            with open(self._file, "w") as f:
+                if self._format == Constants.export_format_solarview:
+                    self._write_out_solarview(f)
+        except Exception as e:
+            print("Error writing to file {}".format(self._file))
 
 def decrypt(t1, t2, key_hex):
     key = binascii.unhexlify(key_hex)
@@ -84,8 +134,6 @@ def decrypt(t1, t2, key_hex):
 # with help of @micronano
 # https://www.photovoltaikforum.com/thread/157476-stromz%C3%A4hler-kaifa-ma309-welches-mbus-usb-kabel/?postID=2341069#post2341069
 class Decrypt:
-    OBIS_1_8_0 = b'0100010800ff'   # Positive active energy (A+) total [Wh]
-    OBIS_2_8_0 = b'0100020800ff'   # Negative active energy (A-) total [Wh]
 
     def __init__(self, frame1, frame2, key_hex_string):
         key = binascii.unhexlify(key_hex_string)  # convert to binary stream
@@ -114,10 +162,10 @@ class Decrypt:
             # print(d)
             # e.g. 0906 01 00 01 08 00 ff  06 0050933c 0202 0f 00 16 1e
             #           |-- OBIS CODE --|     |- Wh -|
-            if d[0:12] == Decrypt.OBIS_1_8_0:
+            if d[0:12] == Obis.OBIS_1_8_0:
                 self._act_energy_pos_kwh=int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
                 # print(self._act_energy_pos_kwh)
-            if d[0:12] == Decrypt.OBIS_2_8_0:
+            if d[0:12] == Obis.OBIS_2_8_0:
                 self._act_energy_neg_kwh = int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
 
     def get_act_energy_plus_kwh(self):
@@ -125,6 +173,7 @@ class Decrypt:
 
     def get_act_energy_neg_kwh(self):
         return self._act_energy_neg_kwh
+
 
 #
 # Script Start
@@ -173,6 +222,12 @@ while True:
                 dec.parse_all()
                 print("1.8.0: {}".format(dec.get_act_energy_plus_kwh()))
                 print("2.8.0: {}".format(dec.get_act_energy_neg_kwh()))
+                # export
+                if g_cfg.get_export_format() is not None:
+                    exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
+                    exp.set_value(Obis.OBIS_1_8_0_S, dec.get_act_energy_plus_kwh())
+                    exp.set_value(Obis.OBIS_2_8_0_S, dec.get_act_energy_neg_kwh())
+                    exp.write_out()
             frame1 = b''
             frame2 = b''
             stream = stream[frame1_start_pos:len(stream)]
