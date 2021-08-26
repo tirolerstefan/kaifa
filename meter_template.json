@@ -5,5 +5,8 @@
   "stopbits": "serial.STOPBITS_ONE",
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
-  "interval": 15
+  "interval": 15,
+  "key_hex_string": "",,
+  "export_format": "SOLARVIEW",
+  "export_file_abspath": "/tmp/export.txt"
 }
