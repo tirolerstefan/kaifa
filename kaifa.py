@@ -114,21 +114,6 @@ class Exporter:
         except Exception as e:
             print("Error writing to file {}".format(self._file))
 
-def decrypt(t1, t2, key_hex):
-    key = binascii.unhexlify(key_hex)
-    systitle = t1[11:19]
-    #print(systitle)
-    ic = t1[23:27]
-    iv = systitle + ic
-    data_t1 = t1[27:len(t1)-2] # 2 bytes at end: checksum byte, end byte 0x16
-    data_t2 = t2[9:len(t2)-2] # 2 bytes at end: checksum byte, end byte 0x16
-    #print(binascii.hexlify(data_t1))
-    #print(binascii.hexlify(data_t2))
-    data_encrypted = data_t1 + data_t2
-    cipher = AES.new(key, AES.MODE_GCM, nonce=iv)
-    data_decrypted = cipher.decrypt(data_encrypted)
-    return data_decrypted
-
 
 # class Decrypt
 # with help of @micronano
