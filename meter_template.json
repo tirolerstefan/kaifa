@@ -1,4 +1,6 @@
 {
+  "loglevel": "logging.DEBUG",
+  "logfile": "/var/log/kaifa.log",
   "port": "/dev/ttyUSB0",
   "baudrate": 2400,
   "parity": "serial.PARITY_NONE",
