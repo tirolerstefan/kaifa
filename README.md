@@ -1,5 +1,34 @@
-# kaifa
-Read out Kaifa smart meter 
+# Kaifa MA309 Smart Meter Logger
+
+## Overview
+
+This script was made to read out the new Smart Meter "Kaifa MA309"
+used by Austrian power grid operators, here TINETZ.
+
+Specification of the interface:
+https://www.tinetz.at/fileadmin/user_upload/Kundenservice/pdf/Beschreibung_Kundenschnittstelle_Smart_Meter_TINETZ.pdf
+
+Discussion about this script:
+https://www.photovoltaikforum.com/thread/157476-stromz%C3%A4hler-kaifa-ma309-welches-mbus-usb-kabel/?pageNo=2#post2350873
+
+Useful description of Frames:
+https://www.gurux.fi/node/18232
+
+This script was only tested with the above meter.
+
+## Required Hardware
+
+![Picture of wiring](img/connection.png)
+
+1. RJ12 6P6C Plug
+
+    e.g. https://www.amazon.de/6P6C-Stecker-6-polige-Schraubklemmen-Adapterstecker-CCTV-Adapterstecker/dp/B07KFGS3BF
+<br><br>
+    **Note**: you have to cut off the plastic shell of the RJ12 plug to fit it into the socket of the MA309.
+<br><br>
+2. MBUS Slave module like this:
+
+    https://www.amazon.de/JOYKK-USB-zu-MBUS-Slave-Modul-Master-Slave-Kommunikation-Debugging-Bus%C3%BCberwachung/dp/B07PDH2ZBV
 
 ## Config
 
