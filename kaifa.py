@@ -34,7 +34,7 @@ class Logger:
 
     def init(self):
         self._logger = logging.getLogger('kaifa')
-        handler = RotatingFileHandler(self._logfile, maxBytes=1000, backupCount=1)
+        handler = RotatingFileHandler(self._logfile, maxBytes=1024*1024*2, backupCount=1)
         formatter = logging.Formatter('%(asctime)s [%(levelname)s]:  %(message)s')
         handler.setFormatter(formatter)
         self._logger.addHandler(handler)
