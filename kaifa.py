@@ -1,8 +1,6 @@
 #/usr/bin/python3
 
 import sys
-import os
-import time
 import serial
 import binascii
 from Cryptodome.Cipher import AES
@@ -11,6 +9,7 @@ import signal
 import logging
 from logging.handlers import RotatingFileHandler
 
+
 #
 # Trap CTRL+C
 #
@@ -18,6 +17,9 @@ def signal_handler(sig, frame):
     print('Aborted by user with Ctrl+C!')
     g_ser.close()
     sys.exit(0)
+
+
+# create signal handler
 signal.signal(signal.SIGINT, signal_handler)
 
 # global logging object will be initialized after config is parsed
@@ -62,6 +64,7 @@ class Constants:
 class Config:
     def __init__(self, file):
         self._file = file
+        self._config = {}
 
     def load(self):
         try:
@@ -243,13 +246,17 @@ while True:
     # do we have any of the start bytes in this stream?
     # otherwise, continue listening on serial port and accumulate stream
     if (frame1_start_pos != -1) and (frame2_start_pos != -1):
-        # do we have a frame2 start byte before a frame1 start byte? -> we parse telegram 1 (68 FA FA 68)
+        # do we have a frame2 start byte before a frame1 start byte?
+        # -> we parse telegram 1 (68 FA FA 68) and continue (waiting for telefram 2)
         if frame2_start_pos > frame1_start_pos:
             frame1 = stream[frame1_start_pos:frame2_start_pos]
             g_log.log_debug("TELEGRAM1:\n{}\n".format(binascii.hexlify(frame1)))
             stream = stream[frame2_start_pos:len(stream)]
             continue
-        # do we have a frame1 start byte before a frame2 start byte? -> we parse telegram 2 (68 72 72 68)
+        # do we have a frame1 start byte before a frame2 start byte?
+        # -> we parse telegram 2 (68 72 72 68) and check whether we already have got a telegram 1
+        # if yes -> decrypt
+        # if no  -> clear everything, start over and wait for telegram 1
         elif frame1_start_pos > frame2_start_pos:
             frame2 = stream[frame2_start_pos:frame1_start_pos]
             g_log.log_debug("TELEGRAM2:\n{}\n".format(binascii.hexlify(frame2)))
@@ -269,8 +276,10 @@ while True:
                     if not exp.write_out():
                         g_log.log_error("Could not export data")
                         sys.exit(50)
+            # clear telegram 1 and 2 buffers and start over
             frame1 = b''
             frame2 = b''
+            # the first byte of frame 1 is our new start of the stream
             stream = stream[frame1_start_pos:len(stream)]
             continue
 
