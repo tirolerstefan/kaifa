@@ -1,0 +1,10 @@
+[Unit]
+Description=kaifareader
+After=syslog.target network.target ntp.service
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/lib/kaifareader/kaifareader.py
+StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target

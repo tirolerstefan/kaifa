@@ -1,6 +1,6 @@
 {
   "loglevel": "logging.DEBUG",
-  "logfile": "/var/log/kaifa.log",
+  "logfile": "/var/log/kaifareader/kaifa.log",
   "port": "/dev/ttyUSB0",
   "baudrate": 2400,
   "parity": "serial.PARITY_NONE",
@@ -8,7 +8,6 @@
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
   "interval": 15,
-  "key_hex_string": "",
   "export_format": "SOLARVIEW",
-  "export_file_abspath": "/tmp/export.txt"
+  "export_file_abspath": "/var/run/kaifareader/kaifa.txt"
 }
