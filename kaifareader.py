@@ -1,6 +1,7 @@
 #/usr/bin/python3
 
 import sys
+import re
 import serial
 import binascii
 from Cryptodome.Cipher import AES
@@ -44,13 +45,13 @@ class Logger:
         self._level = level
         self._logger.setLevel(level)
 
-    def log_debug(self, s):
+    def debug(self, s):
         self._logger.debug(s)
 
-    def log_info(self, s):
+    def info(self, s):
         self._logger.info(s)
 
-    def log_error(self, s):
+    def error(self, s):
         self._logger.error(s)
 
 
@@ -58,6 +59,8 @@ class Constants:
     config_file = "/etc/kaifareader/meter.json"
     frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
     frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
+    frame1_start_bytes_hex = '68fafa68'
+    frame2_start_bytes_hex = '68727268'
     export_format_solarview = "SOLARVIEW"
 
 
@@ -151,7 +154,7 @@ class Exporter:
                 if self._format == Constants.export_format_solarview:
                     self._write_out_solarview(f)
         except Exception as e:
-            g_log.log_error("Error writing to file {}: {}".format(self._file, str(e)))
+            g_log.error("Error writing to file {}: {}".format(self._file, str(e)))
             return False
 
         return True
@@ -163,13 +166,19 @@ class Exporter:
 class Decrypt:
 
     def __init__(self, frame1, frame2, key_hex_string):
+        g_log.debug("Decrypt: FRAME1:\n{}".format(binascii.hexlify(frame1)))
+        g_log.debug("Decrypt: FRAME2:\n{}".format(binascii.hexlify(frame2)))
         key = binascii.unhexlify(key_hex_string)  # convert to binary stream
         systitle = frame1[11:19]  # systitle at byte 12, length 8
-        # print(systitle)
+        g_log.debug("SYSTITLE: {}".format(binascii.hexlify(systitle)))
         ic = frame1[23:27]   # invocation counter at byte 24, length 4
+        g_log.debug("IC: {} / {}".format(binascii.hexlify(ic), int.from_bytes(ic,'big')))
         iv = systitle + ic   # initialization vector
+        g_log.debug("IV: {}".format(binascii.hexlify(iv)))
         data_frame1 = frame1[27:len(frame1) - 2]  # start at byte 28, excluding 2 bytes at end: checksum byte, end byte 0x16
         data_frame2 = frame2[9:len(frame2) - 2]   # start at byte 10, excluding 2 bytes at end: checksum byte, end byte 0x16
+        g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame1)))
+        g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame2)))
         # print(binascii.hexlify(data_t1))
         # print(binascii.hexlify(data_t2))
         data_encrypted = data_frame1 + data_frame2
@@ -177,7 +186,7 @@ class Decrypt:
         self._data_decrypted = cipher.decrypt(data_encrypted)
         self._data_decrypted_hex = binascii.hexlify(self._data_decrypted)
 
-        g_log.log_debug(self._data_decrypted_hex)
+        g_log.debug(self._data_decrypted_hex)
 
         # init OBIS values
         self._act_energy_pos_kwh = 0
@@ -188,8 +197,10 @@ class Decrypt:
         # which have a 06 byte obis code (e.g. 0906 0100010800ff 0600514c1c02020f00161e0203)
         l = self._data_decrypted_hex.split(b'0906')
 
+        g_log.debug(l)
+
         for d in l:
-            # print(d)
+            g_log.debug(d)
             # e.g. 0906 01 00 01 08 00 ff  06 0050933c 0202 0f 00 16 1e
             #           |-- OBIS CODE --|     |- Wh -|
             if d[0:12] == Obis.OBIS_1_8_0:
@@ -197,7 +208,7 @@ class Decrypt:
             if d[0:12] == Obis.OBIS_2_8_0:
                 self._act_energy_neg_kwh = int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
 
-    def get_act_energy_plus_kwh(self):
+    def get_act_energy_pos_kwh(self):
         return self._act_energy_pos_kwh
 
     def get_act_energy_neg_kwh(self):
@@ -232,56 +243,79 @@ g_ser = serial.Serial(
         timeout = g_cfg.get_interval())
 
 
-frame1 = b''
-frame2 = b''
-stream = b''
 
 while True:
-    stream += g_ser.readline()
-    #print(binascii.hexlify(stream))
+    stream = b''
+    frame1 = b''
+    frame2 = b''
 
-    frame1_start_pos = stream.find(Constants.frame1_start_bytes)
-    frame2_start_pos = stream.find(Constants.frame2_start_bytes)
+    frame1_start_pos = -1
+    frame2_start_pos = -1
+    next_frame1_start_pos = -1
 
-    # do we have any of the start bytes in this stream?
-    # otherwise, continue listening on serial port and accumulate stream
-    if (frame1_start_pos != -1) and (frame2_start_pos != -1):
-        # do we have a frame2 start byte before a frame1 start byte?
-        # -> we parse telegram 1 (68 FA FA 68) and continue (waiting for telefram 2)
-        if frame2_start_pos > frame1_start_pos:
-            frame1 = stream[frame1_start_pos:frame2_start_pos]
-            g_log.log_debug("TELEGRAM1:\n{}\n".format(binascii.hexlify(frame1)))
-            stream = stream[frame2_start_pos:len(stream)]
-            continue
-        # do we have a frame1 start byte before a frame2 start byte?
-        # -> we parse telegram 2 (68 72 72 68) and check whether we already have got a telegram 1
-        # if yes -> decrypt
-        # if no  -> clear everything, start over and wait for telegram 1
-        elif frame1_start_pos > frame2_start_pos:
-            frame2 = stream[frame2_start_pos:frame1_start_pos]
-            g_log.log_debug("TELEGRAM2:\n{}\n".format(binascii.hexlify(frame2)))
+    # loop as long as we have found two full telegrams
+    # frame1 = first telegram (68fafa68), frame2 = second telegram (68727268)
+    # we need to wait for the "next" frame 1 to be sure that frame2 has completely arrived
+    while True:
+        stream += g_ser.readline()
+        #print(binascii.hexlify(stream))
 
-            # decrypt, when we have both - frame 1 and frame 2
-            if frame1 != b'':
-                dec = Decrypt(frame1, frame2, g_cfg.get_key_hex_string())
-                # print("DECRYPTED DATA:\n{}\n{}\n".format(data,binascii.hexlify(data)))
-                dec.parse_all()
-                g_log.log_info("1.8.0: {}".format(dec.get_act_energy_plus_kwh()))
-                g_log.log_info("2.8.0: {}".format(dec.get_act_energy_neg_kwh()))
-                # export
-                if g_cfg.get_export_format() is not None:
-                    exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-                    exp.set_value(Obis.OBIS_1_8_0_S, dec.get_act_energy_plus_kwh())
-                    exp.set_value(Obis.OBIS_2_8_0_S, dec.get_act_energy_neg_kwh())
-                    if not exp.write_out():
-                        g_log.log_error("Could not export data")
-                        sys.exit(50)
-            # clear telegram 1 and 2 buffers and start over
-            frame1 = b''
-            frame2 = b''
-            # the first byte of frame 1 is our new start of the stream
-            stream = stream[frame1_start_pos:len(stream)]
-            continue
+        # frame 1_1, frame
+        frame1_start_pos = stream.find(Constants.frame1_start_bytes)
+        frame2_start_pos = stream.find(Constants.frame2_start_bytes)
+
+        if frame2_start_pos != -1:
+            next_frame1_start_pos = stream.find(Constants.frame1_start_bytes, frame2_start_pos)
+
+        g_log.debug("pos: {} | {} | {}".format(frame1_start_pos, frame2_start_pos, next_frame1_start_pos))
+
+        if (frame1_start_pos != -1) and (frame2_start_pos != -1) and (next_frame1_start_pos != -1):
+            # frame2_start_pos could be smaller than frame1_start_pos
+            if frame2_start_pos < frame1_start_pos:
+                stream = stream[frame1_start_pos:len(stream)]
+                continue
+
+            # we have found at least two complete telegrams
+            regex = binascii.unhexlify('28'+Constants.frame1_start_bytes_hex+'7c'+Constants.frame2_start_bytes_hex+'29')  # re = '(..|..)'
+            l = re.split(regex, stream)
+            l = list(filter(None, l)) # remove empty elements
+            # l (here in following example in hex)
+            # l = ['68fafa68', '53ff00...faecc16', '68727268', '53ff...3d16', '68fafa68', '53ff...d916', '68727268', '53ff.....']
+
+            g_log.debug(binascii.hexlify(stream))
+            g_log.debug(l)
+
+            # take the first two matching telegrams
+            for i, el in enumerate(l):
+                if el == Constants.frame1_start_bytes:
+                    frame1 = l[i] + l[i+1]
+                    frame2 = l[i+2] + l[i+3]
+                    break
+
+            if (len(frame1) == 0) or (len(frame2) == 0):
+                g_log.error("Frame1 or Frame2 is empty: {} | {}".format(frame1, frame2))
+                sys.exit(30)
+
+            g_log.debug("TELEGRAM1:\n{}\n".format(binascii.hexlify(frame1)))
+            g_log.debug("TELEGRAM2:\n{}\n".format(binascii.hexlify(frame2)))
+
+            break
+
+    dec = Decrypt(frame1, frame2, g_cfg.get_key_hex_string())
+
+    dec.parse_all()
+
+    g_log.info("1.8.0: {}".format(dec.get_act_energy_pos_kwh()))
+    g_log.info("2.8.0: {}".format(dec.get_act_energy_neg_kwh()))
+    # export
+    if g_cfg.get_export_format() is not None:
+        exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
+        exp.set_value(Obis.OBIS_1_8_0_S, dec.get_act_energy_pos_kwh())
+        exp.set_value(Obis.OBIS_2_8_0_S, dec.get_act_energy_neg_kwh())
+        if not exp.write_out():
+            g_log.error("Could not export data")
+            sys.exit(50)
+
 
 g_ser.close()
 
