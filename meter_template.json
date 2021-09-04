@@ -1,5 +1,5 @@
 {
-  "loglevel": "logging.DEBUG",
+  "loglevel": "logging.INFO",
   "logfile": "/var/log/kaifareader/kaifa.log",
   "port": "/dev/ttyUSB0",
   "baudrate": 2400,
