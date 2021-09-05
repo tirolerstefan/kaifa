@@ -243,24 +243,22 @@ g_ser = serial.Serial(
         timeout = g_cfg.get_interval())
 
 
-
+# main task endless loop
 while True:
-    stream = b''
-    frame1 = b''
-    frame2 = b''
+    stream = b''      # filled by serial device
+    frame1 = b''      # parsed telegram1
+    frame2 = b''      # parsed telegram2
 
-    frame1_start_pos = -1
-    frame2_start_pos = -1
-    next_frame1_start_pos = -1
+    frame1_start_pos = -1          # pos of start bytes of telegram 1 (in stream)
+    frame2_start_pos = -1          # pos of start bytes of telegram 2 (in stream)
+    next_frame1_start_pos = -1     # pos of start bytes of NEXT telegram 1 (in stream)
 
-    # loop as long as we have found two full telegrams
+    # "telegram fetching loop" (as long as we have found two full telegrams)
     # frame1 = first telegram (68fafa68), frame2 = second telegram (68727268)
     # we need to wait for the "next" frame 1 to be sure that frame2 has completely arrived
     while True:
         stream += g_ser.readline()
-        #print(binascii.hexlify(stream))
 
-        # frame 1_1, frame
         frame1_start_pos = stream.find(Constants.frame1_start_bytes)
         frame2_start_pos = stream.find(Constants.frame2_start_bytes)
 
@@ -272,14 +270,15 @@ while True:
         if (frame1_start_pos != -1) and (frame2_start_pos != -1) and (next_frame1_start_pos != -1):
             # frame2_start_pos could be smaller than frame1_start_pos
             if frame2_start_pos < frame1_start_pos:
+                # start over with the stream from frame1 pos
                 stream = stream[frame1_start_pos:len(stream)]
                 continue
 
             # we have found at least two complete telegrams
             regex = binascii.unhexlify('28'+Constants.frame1_start_bytes_hex+'7c'+Constants.frame2_start_bytes_hex+'29')  # re = '(..|..)'
             l = re.split(regex, stream)
-            l = list(filter(None, l)) # remove empty elements
-            # l (here in following example in hex)
+            l = list(filter(None, l))  # remove empty elements
+            # l after split (here in following example in hex)
             # l = ['68fafa68', '53ff00...faecc16', '68727268', '53ff...3d16', '68fafa68', '53ff...d916', '68727268', '53ff.....']
 
             g_log.debug(binascii.hexlify(stream))
@@ -292,6 +291,7 @@ while True:
                     frame2 = l[i+2] + l[i+3]
                     break
 
+            # check for weird result -> exit
             if (len(frame1) == 0) or (len(frame2) == 0):
                 g_log.error("Frame1 or Frame2 is empty: {} | {}".format(frame1, frame2))
                 sys.exit(30)
@@ -302,11 +302,11 @@ while True:
             break
 
     dec = Decrypt(frame1, frame2, g_cfg.get_key_hex_string())
-
     dec.parse_all()
 
     g_log.info("1.8.0: {}".format(dec.get_act_energy_pos_kwh()))
     g_log.info("2.8.0: {}".format(dec.get_act_energy_neg_kwh()))
+
     # export
     if g_cfg.get_export_format() is not None:
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
@@ -317,6 +317,5 @@ while True:
             sys.exit(50)
 
 
-g_ser.close()
 
 
