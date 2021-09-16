@@ -47,17 +47,49 @@ is supported.
 - The config key `export_format` has to be set to `SOLARVIEW`
 - The config key `export_file_abspath` has to be set to the absolute file path
 
+## Installation
+
+### Systemd automatic service
+
+This installs and automatically starts a systemd service.
+
+Install the debian package 
+
+`sudo dpkg -i kaifareader_...deb`
+
+If there are problems on missing packages, execute afterwards:
+
+`sudo apt -f install`
+
 ## Start
 
-### Foreground
+### Automatically, if service is installed and running
+
+Startup done, automatically.
+
+Status of the service:
+
+`sudo systemctl status kaifareader`
+
+Start manually (e.g. after manually stopped)
+
+`sudo systemctl start kaifareader`
+
+### Manually
+
+#### Foreground
 
 `python3 kaifa.py`
 
-### Background
+#### Background
 
 `nohup python3 kaifa.py &`
 
 ## Stop
+
+### If service is installed and running
+
+`sudo systemctl stop kaifareader`
 
 ### Foreground
 
