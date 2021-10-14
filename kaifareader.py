@@ -58,9 +58,9 @@ class Logger:
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
     frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
-    frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
+    frame2_start_bytes = b'\x68\x14\x14\x68'  # 68 72 72 68
     frame1_start_bytes_hex = '68fafa68'
-    frame2_start_bytes_hex = '68727268'
+    frame2_start_bytes_hex = '68141468'
     export_format_solarview = "SOLARVIEW"
 
 
