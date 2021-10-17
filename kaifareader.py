@@ -171,7 +171,7 @@ class Decrypt:
         key = binascii.unhexlify(key_hex_string)  # convert to binary stream
         systitle = frame1[11:19]  # systitle at byte 12, length 8
         g_log.debug("SYSTITLE: {}".format(binascii.hexlify(systitle)))
-        ic = frame1[23:27]   # invocation counter at byte 24, length 4
+        ic = frame1[22:25]   # invocation counter at byte 22, length 4
         g_log.debug("IC: {} / {}".format(binascii.hexlify(ic), int.from_bytes(ic,'big')))
         iv = systitle + ic   # initialization vector
         g_log.debug("IV: {}".format(binascii.hexlify(iv)))
