@@ -55,12 +55,32 @@ class Logger:
         self._logger.error(s)
 
 
+class Supplier:
+    name = None
+    frame1_start_bytes_hex = '68fafa68'
+    frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
+    ic_start_byte = None
+    enc_data_start_byte = None
+
+
+class SupplierTINETZ(Supplier):
+    name = "TINETZ"
+    frame2_start_bytes_hex = '68727268'
+    frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
+    ic_start_byte = 23
+    enc_data_start_byte = 27
+
+
+class SupplierEVN(Supplier):
+    name = "EVN"
+    frame2_start_bytes_hex = '68141468'
+    frame2_start_bytes = b'\x68\x14\x14\x68'  # 68 14 14 68
+    ic_start_byte = 22
+    enc_data_start_byte = 26
+
+
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
-    frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
-    frame2_start_bytes = b'\x68\x14\x14\x68'  # 68 14 14 68
-    frame1_start_bytes_hex = '68fafa68'
-    frame2_start_bytes_hex = '68141468'
     export_format_solarview = "SOLARVIEW"
 
 
@@ -108,6 +128,9 @@ class Config:
 
     def get_interval(self):
         return self._config["interval"]
+
+    def get_supplier(self):
+        return str(self._config["supplier"])
 
     def get_export_format(self):
         if not "export_format" in self._config:
@@ -165,17 +188,17 @@ class Exporter:
 # https://www.photovoltaikforum.com/thread/157476-stromz%C3%A4hler-kaifa-ma309-welches-mbus-usb-kabel/?postID=2341069#post2341069
 class Decrypt:
 
-    def __init__(self, frame1, frame2, key_hex_string):
+    def __init__(self, supplier: Supplier, frame1, frame2, key_hex_string):
         g_log.debug("Decrypt: FRAME1:\n{}".format(binascii.hexlify(frame1)))
         g_log.debug("Decrypt: FRAME2:\n{}".format(binascii.hexlify(frame2)))
         key = binascii.unhexlify(key_hex_string)  # convert to binary stream
         systitle = frame1[11:19]  # systitle at byte 12, length 8
         g_log.debug("SYSTITLE: {}".format(binascii.hexlify(systitle)))
-        ic = frame1[22:26]   # invocation counter at byte 22, length 4
+        ic = frame1[supplier.ic_start_byte:supplier.ic_start_byte+4]   # invocation counter length 4
         g_log.debug("IC: {} / {}".format(binascii.hexlify(ic), int.from_bytes(ic,'big')))
         iv = systitle + ic   # initialization vector
         g_log.debug("IV: {}".format(binascii.hexlify(iv)))
-        data_frame1 = frame1[26:len(frame1) - 2]  # start at byte 27, excluding 2 bytes at end: checksum byte, end byte 0x16
+        data_frame1 = frame1[supplier.enc_data_start_byte:len(frame1) - 2]  # start at byte 26 or 27 (dep on supplier), excluding 2 bytes at end: checksum byte, end byte 0x16
         data_frame2 = frame2[9:len(frame2) - 2]   # start at byte 10, excluding 2 bytes at end: checksum byte, end byte 0x16
         g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame1)))
         g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame2)))
@@ -242,6 +265,12 @@ g_ser = serial.Serial(
         bytesize = g_cfg.get_bytesize(),
         timeout = g_cfg.get_interval())
 
+if g_cfg.get_supplier().upper() == SupplierTINETZ.name:
+    g_supplier = SupplierTINETZ()
+elif g_cfg.get_supplier().upper() == SupplierEVN.name:
+    g_supplier = SupplierEVN()
+else:
+    raise Exception("Supplier not supported: {}".format(g_cfg.get_supplier()))
 
 # main task endless loop
 while True:
@@ -259,11 +288,11 @@ while True:
     while True:
         stream += g_ser.readline()
 
-        frame1_start_pos = stream.find(Constants.frame1_start_bytes)
-        frame2_start_pos = stream.find(Constants.frame2_start_bytes)
+        frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
+        frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
         if frame2_start_pos != -1:
-            next_frame1_start_pos = stream.find(Constants.frame1_start_bytes, frame2_start_pos)
+            next_frame1_start_pos = stream.find(g_supplier.frame1_start_bytes, frame2_start_pos)
 
         g_log.debug("pos: {} | {} | {}".format(frame1_start_pos, frame2_start_pos, next_frame1_start_pos))
 
@@ -275,7 +304,7 @@ while True:
                 continue
 
             # we have found at least two complete telegrams
-            regex = binascii.unhexlify('28'+Constants.frame1_start_bytes_hex+'7c'+Constants.frame2_start_bytes_hex+'29')  # re = '(..|..)'
+            regex = binascii.unhexlify('28'+g_supplier.frame1_start_bytes_hex+'7c'+g_supplier.frame2_start_bytes_hex+'29')  # re = '(..|..)'
             l = re.split(regex, stream)
             l = list(filter(None, l))  # remove empty elements
             # l after split (here in following example in hex)
@@ -286,7 +315,7 @@ while True:
 
             # take the first two matching telegrams
             for i, el in enumerate(l):
-                if el == Constants.frame1_start_bytes:
+                if el == g_supplier.frame1_start_bytes:
                     frame1 = l[i] + l[i+1]
                     frame2 = l[i+2] + l[i+3]
                     break
@@ -301,7 +330,7 @@ while True:
 
             break
 
-    dec = Decrypt(frame1, frame2, g_cfg.get_key_hex_string())
+    dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
     dec.parse_all()
 
     g_log.info("1.8.0: {}".format(dec.get_act_energy_pos_kwh()))

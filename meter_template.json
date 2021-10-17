@@ -8,6 +8,7 @@
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
   "interval": 15,
+  "supplier": "TINETZ",
   "export_format": "SOLARVIEW",
   "export_file_abspath": "/var/run/kaifareader/kaifa.txt"
 }
