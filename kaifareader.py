@@ -83,6 +83,31 @@ class Constants:
     config_file = "/etc/kaifareader/meter.json"
     export_format_solarview = "SOLARVIEW"
 
+class DataType:
+    NullData = 0x00
+    Boolean = 0x03
+    BitString = 0x04
+    DoubleLong = 0x05
+    DoubleLongUnsigned = 0x06
+    OctetString = 0x09
+    VisibleString = 0x0A
+    Utf8String = 0x0C
+    BinaryCodedDecimal = 0x0D
+    Integer = 0x0F
+    Long = 0x10
+    Unsigned = 0x11
+    LongUnsigned = 0x12
+    Long64 = 0x14
+    Long64Unsigned = 0x15
+    Enum = 0x16
+    Float32 = 0x17
+    Float64 = 0x18
+    DateTime = 0x19
+    Date = 0x1A
+    Time = 0x1B
+    Array = 0x01
+    Structure = 0x02
+    CompactArray = 0x13
 
 class Config:
     def __init__(self, file):
@@ -146,6 +171,22 @@ class Config:
 
 
 class Obis:
+    def to_bytes(code):
+        return bytes([int(a) for a in code.split(".")])
+    VoltageL1 = to_bytes("01.0.32.7.0.255")
+    VoltageL2 = to_bytes("01.0.52.7.0.255")
+    VoltageL3 = to_bytes("01.0.72.7.0.255")
+    CurrentL1 = to_bytes("1.0.31.7.0.255")
+    CurrentL2 = to_bytes("1.0.51.7.0.255")
+    CurrentL3 = to_bytes("1.0.71.7.0.255")
+    RealPowerIn = to_bytes("1.0.1.7.0.255")
+    RealPowerOut = to_bytes("1.0.2.7.0.255")
+    RealEnergyIn = to_bytes("1.0.1.8.0.255")
+    RealEnergyOut = to_bytes("1.0.2.8.0.255")
+    ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
+    ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
+    Factor = to_bytes("01.0.13.7.0.255")
+
     OBIS_1_8_0 = b'0100010800ff'   # Bytecode of Positive active energy (A+) total [Wh]
     OBIS_1_8_0_S = '1.8.0'         # String of Positive active energy (A+) total [Wh]
     OBIS_2_8_0 = b'0100020800ff'   # Bytecode of Negative active energy (A-) total [Wh]
@@ -216,26 +257,65 @@ class Decrypt:
         self._act_energy_neg_kwh = 0
 
     def parse_all(self):
-        # use 0906 as separator, because we are only interested in the octet-strings (09)
-        # which have a 06 byte obis code (e.g. 0906 0100010800ff 0600514c1c02020f00161e0203)
-        l = self._data_decrypted_hex.split(b'0906')
+        decrypted = self._data_decrypted
+        #print(self._data_decrypted_hex)
+        pos = 34
+        total = min(229,len(decrypted))
+        self.obis = {}
+        while pos < total:
+            if decrypted[pos] != DataType.OctetString:
+                g_log.error("Unsupported OBIS header type {} at pos {}".format(decrypted[pos], pos))
+                break
+            if decrypted[pos + 1] != 6:
+                g_log.error("Unsupported OBIS code length {} at pos {}".format(decrypted[pos + 1], pos +1))
+                break
+            obis_code = decrypted[pos + 2 : pos + 2 + 6]
+            data_type = decrypted[pos + 2 + 6]
+            pos += 2 + 6 + 1
 
-        g_log.debug(l)
+            g_log.debug("OBIS code {} DataType {}".format(binascii.hexlify(obis_code),data_type))
+            if data_type == DataType.DoubleLongUnsigned:
+                value = int.from_bytes(decrypted[pos : pos + 4], "big")
+                scale = decrypted[pos + 4 + 3]
+                if scale > 128: scale -= 256
+                pos += 2 + 8
+                self.obis[obis_code] = value*(10**scale)
+                g_log.debug("DLU: {}, {}, {}".format(value,scale,value*(10**scale)))
+                #print(obis)
+            elif data_type == DataType.LongUnsigned:
+                value = int.from_bytes(decrypted[pos : pos + 2], "big")
+                scale = decrypted[pos + 2 + 3]
+                if scale > 128: scale -= 256
+                pos += 8
+                self.obis[obis_code] = value*(10**scale)
+                g_log.debug("LU: {}, {}, {}".format(value,scale,value*(10**scale)))
+            elif data_type == DataType.OctetString:
+                octet_len = decrypted[pos]
+                octet = decrypted[pos + 1 : pos + 1 + octet_len]
+                pos += 1 + octet_len + 2
+                self.obis[obis_code] = octet
+                g_log.debug("OCTET: {}, {}".format(octet_len,octet))
 
-        for d in l:
-            g_log.debug(d)
-            # e.g. 0906 01 00 01 08 00 ff  06 0050933c 0202 0f 00 16 1e
-            #           |-- OBIS CODE --|     |- Wh -|
-            if d[0:12] == Obis.OBIS_1_8_0:
-                self._act_energy_pos_kwh=int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
-            if d[0:12] == Obis.OBIS_2_8_0:
-                self._act_energy_neg_kwh = int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
+        # # use 0906 as separator, because we are only interested in the octet-strings (09)
+        # # which have a 06 byte obis code (e.g. 0906 0100010800ff 0600514c1c02020f00161e0203)
+        # l = self._data_decrypted_hex.split(b'0906')
+
+        # g_log.debug(l)
+
+        # for d in l:
+        #     g_log.debug(d)
+        #     # e.g. 0906 01 00 01 08 00 ff  06 0050933c 0202 0f 00 16 1e
+        #     #           |-- OBIS CODE --|     |- Wh -|
+        #     if d[0:12] == Obis.OBIS_1_8_0:
+        #         self._act_energy_pos_kwh=int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
+        #     if d[0:12] == Obis.OBIS_2_8_0:
+        #         self._act_energy_neg_kwh = int.from_bytes(binascii.unhexlify(d[14:22]), 'big') / 1000
 
     def get_act_energy_pos_kwh(self):
-        return self._act_energy_pos_kwh
+        return self.obis[Obis.RealEnergyIn] / 1000
 
     def get_act_energy_neg_kwh(self):
-        return self._act_energy_neg_kwh
+        return self.obis[Obis.RealEnergyOut] / 1000
 
 
 #
