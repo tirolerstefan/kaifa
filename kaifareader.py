@@ -175,7 +175,7 @@ class Decrypt:
         g_log.debug("IC: {} / {}".format(binascii.hexlify(ic), int.from_bytes(ic,'big')))
         iv = systitle + ic   # initialization vector
         g_log.debug("IV: {}".format(binascii.hexlify(iv)))
-        data_frame1 = frame1[27:len(frame1) - 2]  # start at byte 28, excluding 2 bytes at end: checksum byte, end byte 0x16
+        data_frame1 = frame1[26:len(frame1) - 2]  # start at byte 27, excluding 2 bytes at end: checksum byte, end byte 0x16
         data_frame2 = frame2[9:len(frame2) - 2]   # start at byte 10, excluding 2 bytes at end: checksum byte, end byte 0x16
         g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame1)))
         g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame2)))
