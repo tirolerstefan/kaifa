@@ -406,8 +406,8 @@ while True:
     # export
     if g_cfg.get_export_format() is not None:
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-        exp.set_value(Obis.RealEnergyIn_S, str(dec.get_act_energy_pos_kwh()))
-        exp.set_value(Obis.RealEnergyOut_S, str(dec.get_act_energy_neg_kwh()))
+        exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
+        exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
