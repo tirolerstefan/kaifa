@@ -3,7 +3,7 @@
 ## Overview
 
 This script was made to read out the new Smart Meter "Kaifa MA309"
-used by Austrian power grid operators, here TINETZ.
+used by Austrian power grid operators, here tested with TINETZ and EVN.
 
 Specification of the interface:
 https://www.tinetz.at/fileadmin/user_upload/Kundenservice/pdf/Beschreibung_Kundenschnittstelle_Smart_Meter_TINETZ.pdf
@@ -37,7 +37,30 @@ parameters and your AES key.
 
 A template file `meter_template.json` can be recycled for this.
 
+```
+{
+  "loglevel": "logging.INFO",
+  "logfile": "/var/log/kaifareader/kaifa.log",
+  "port": "/dev/ttyUSB0",
+  "baudrate": 2400,
+  "parity": "serial.PARITY_NONE",
+  "stopbits": "serial.STOPBITS_ONE",
+  "bytesize": "serial.EIGHTBITS",
+  "key_hex_string": "",
+  "interval": 15,
+  "supplier": "TINETZ",
+  "export_format": "SOLARVIEW",
+  "export_file_abspath": "/var/run/kaifareader/kaifa.txt"
+}
+```
+
 The AES key format is "hex string", e.g. `a4f2d...`
+
+Please provide your electricity supplier by the field "supplier". Because each supplier uses its own security standard, 
+the telegrams differ. This script was tested with suppliers:
+- TINETZ
+- EVN
+
 
 ### Export
 
