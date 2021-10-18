@@ -11,10 +11,10 @@ https://www.tinetz.at/fileadmin/user_upload/Kundenservice/pdf/Beschreibung_Kunde
 Discussion about this script:
 https://www.photovoltaikforum.com/thread/157476-stromz%C3%A4hler-kaifa-ma309-welches-mbus-usb-kabel/?pageNo=2#post2350873
 
-Useful description of Frames:
+Useful description of TiNetz frames:
 https://www.gurux.fi/node/18232
 
-This script was only tested with the above meter.
+This script was only tested with the above meter and the mentioned suppliers.
 
 ## Required Hardware
 
