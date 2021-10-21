@@ -1,3 +1,11 @@
+kaifareader (0.4) unstable; urgency=medium
+
+  * rework parser (thanks to @kitzler-walli)
+  * support of EVN telegrams (thanks to @dbeinder)
+  * supplier classes for each supplier
+
+ -- Stefan Felkel <16918854+tirolerstefan@users.noreply.github.com>  Thu, 21 Oct 2021 20:10:28 +0200
+
 kaifareader (0.3) unstable; urgency=medium
 
   * serial stream: reworked parser to find two succeeding telegram
