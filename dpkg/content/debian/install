@@ -1,5 +1,3 @@
-etc/kaifareader/meter_template.json
+etc/kaifareader/meter.json
 lib/systemd/system/kaifareader.service
 usr/lib/kaifareader/kaifareader.py
-
-
