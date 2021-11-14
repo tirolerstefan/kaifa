@@ -2,10 +2,14 @@
 
 cd content
 
+mkdir -p usr/lib/kaifareader/
+mkdir -p etc/kaifareader/
+mkdir -p lib/systemd/system/
+
 # copy files to debian package structure
-cp -v ../../kaifareader.py               usr/lib/kaifareader/
-cp -v ../../meter_template.json          etc/kaifareader/
-cp -v ../../systemd/kaifareader.service  lib/systemd/system/
+cp -v ../../kaifareader.py usr/lib/kaifareader/
+cp -v ../../meter.json etc/kaifareader/
+cp -v ../../systemd/kaifareader.service lib/systemd/system/
 
 dpkg-buildpackage -uc -us
 
