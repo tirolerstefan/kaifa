@@ -62,7 +62,6 @@ class Supplier:
     ic_start_byte = None
     enc_data_start_byte = None
 
-
 class SupplierTINETZ(Supplier):
     name = "TINETZ"
     frame2_start_bytes_hex = '68727268'
@@ -70,6 +69,12 @@ class SupplierTINETZ(Supplier):
     ic_start_byte = 23
     enc_data_start_byte = 27
 
+class SupplierSALZBURGNETZ(Supplier):
+    name = "SALZBURGNETZ"
+    frame2_start_bytes_hex = '68727268'
+    frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
+    ic_start_byte = 23
+    enc_data_start_byte = 27
 
 class SupplierEVN(Supplier):
     name = "EVN"
@@ -77,7 +82,6 @@ class SupplierEVN(Supplier):
     frame2_start_bytes = b'\x68\x14\x14\x68'  # 68 14 14 68
     ic_start_byte = 22
     enc_data_start_byte = 26
-
 
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
@@ -332,12 +336,15 @@ g_ser = serial.Serial(
         bytesize = g_cfg.get_bytesize(),
         timeout = g_cfg.get_interval())
 
-if g_cfg.get_supplier().upper() == SupplierTINETZ.name:
+supplierName = g_cfg.get_supplier().upper()
+if supplierName == SupplierTINETZ.name:
     g_supplier = SupplierTINETZ()
-elif g_cfg.get_supplier().upper() == SupplierEVN.name:
+elif supplierName == SupplierSALZBURGNETZ.name:
+    g_supplier = SupplierSALZBURGNETZ()
+elif supplierName == SupplierEVN.name:
     g_supplier = SupplierEVN()
 else:
-    raise Exception("Supplier not supported: {}".format(g_cfg.get_supplier()))
+    raise Exception("Supplier not supported: {}".format(supplierName))
 
 # main task endless loop
 while True:
