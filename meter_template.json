@@ -10,5 +10,10 @@
   "interval": 15,
   "supplier": "TINETZ",
   "export_format": "SOLARVIEW",
-  "export_file_abspath": "/var/run/kaifareader/kaifa.txt"
+  "export_file_abspath": "/var/run/kaifareader/kaifa.txt",
+  "export_mqtt_server": "mymqtt.examplebroker.com",
+  "export_mqtt_port": 1883,
+  "export_mqtt_user": "mymqttuser",
+  "export_mqtt_password": "supersecretmqttpass",
+  "export_mqtt_basetopic": "kaifareader"
 }
