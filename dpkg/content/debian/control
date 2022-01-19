@@ -6,5 +6,6 @@ Homepage: https://github.com/tirolerstefan/kaifa
 
 Package: kaifareader
 Architecture: all
-Depends: ${misc:Depends}, ${shlibs:Depends}, python3, python3-serial, python3-pycryptodome
+Depends: ${misc:Depends}, ${shlibs:Depends}, python3, python3-serial, python3-pycryptodome,
+         python3-paho-mqtt
 Description: Read out Kaifa M309 using serial connection.

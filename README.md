@@ -50,7 +50,12 @@ A template file `meter_template.json` can be recycled for this.
   "interval": 15,
   "supplier": "TINETZ",
   "export_format": "SOLARVIEW",
-  "export_file_abspath": "/var/run/kaifareader/kaifa.txt"
+  "export_file_abspath": "/var/run/kaifareader/kaifa.txt",
+  "export_mqtt_server": "mymqtt.examplebroker.com",
+  "export_mqtt_port": 1883,
+  "export_mqtt_user": "mymqttuser",
+  "export_mqtt_password": "supersecretmqttpass",
+  "export_mqtt_basetopic": "kaifareader"
 }
 ```
 
@@ -61,14 +66,22 @@ the telegrams differ. This script was tested with suppliers:
 - TINETZ
 - EVN
 
-
 ### Export
+
+**Solarview**
 
 Currently, the export to a file readable by Solarview (http://solarview.info/)
 is supported.
 
 - The config key `export_format` has to be set to `SOLARVIEW`
 - The config key `export_file_abspath` has to be set to the absolute file path
+
+**MQTT**
+
+- The config key `export_format` has to be set to `MQTT`
+- The config keys `export_mqtt_server`, `export_mqtt_port`,
+  `export_mqtt_user`, `export_mqtt_password` and `export_mqtt_basetopic`
+  have to be set.
 
 ## Installation
 

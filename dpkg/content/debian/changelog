@@ -1,3 +1,9 @@
+kaifareader (0.5) unstable; urgency=medium
+
+  * added MQTT (thanks to @boredomwontgetus)
+
+ -- Stefan Felkel <16918854+tirolerstefan@users.noreply.github.com>  Wed, 19 Jan 2022 20:25:37 +0100
+
 kaifareader (0.4) unstable; urgency=medium
 
   * rework parser (thanks to @kitzler-walli)
