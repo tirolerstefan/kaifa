@@ -9,7 +9,7 @@ import json
 import signal
 import logging
 from logging.handlers import RotatingFileHandler
-
+import paho.mqtt.client as mqtt
 
 #
 # Trap CTRL+C
@@ -169,6 +169,36 @@ class Config:
         else:
             return self._config["export_file_abspath"]
 
+    def get_export_mqtt_server(self):
+        if not "export_mqtt_server" in self._config:
+            return None
+        else:
+            return self._config["export_mqtt_server"]
+
+    def get_export_mqtt_port(self):
+        if not "export_mqtt_port" in self._config:
+            return None
+        else:
+            return self._config["export_mqtt_port"]
+
+    def get_export_mqtt_user(self):
+        if not "export_mqtt_user" in self._config:
+            return None
+        else:
+            return self._config["export_mqtt_user"]
+
+    def get_export_mqtt_password(self):
+        if not "export_mqtt_password" in self._config:
+            return None
+        else:
+            return self._config["export_mqtt_password"]
+
+    def get_export_mqtt_basetopic(self):
+        if not "export_mqtt_basetopic" in self._config:
+            return None
+        else:
+            return self._config["export_mqtt_basetopic"]
+
 
 class Obis:
     def to_bytes(code):
@@ -304,7 +334,6 @@ class Decrypt:
         else:
             return None
 
-
 #
 # Script Start
 #
@@ -338,6 +367,15 @@ elif g_cfg.get_supplier().upper() == SupplierEVN.name:
     g_supplier = SupplierEVN()
 else:
     raise Exception("Supplier not supported: {}".format(g_cfg.get_supplier()))
+
+# connect to mqtt broker
+try:
+    mqtt_client = mqtt.Client("kaifareader")
+    mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
+    mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+except Exception as e:
+    print("Failed to connect: " + str(e))
+    sys.exit(40)
 
 # main task endless loop
 while True:
@@ -403,8 +441,8 @@ while True:
     g_log.info("1.8.0: {}".format(str(dec.get_act_energy_pos_kwh())))
     g_log.info("2.8.0: {}".format(str(dec.get_act_energy_neg_kwh())))
 
-    # export
-    if g_cfg.get_export_format() is not None:
+    # export solarview
+    if g_cfg.get_export_format() == 'SOLARVIEW':
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
         exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
         exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
@@ -412,6 +450,7 @@ while True:
             g_log.error("Could not export data")
             sys.exit(50)
 
-
-
-
+    # export mqtt
+    if g_cfg.get_export_format() == 'MQTT':
+        mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
