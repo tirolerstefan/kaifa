@@ -369,13 +369,14 @@ else:
     raise Exception("Supplier not supported: {}".format(g_cfg.get_supplier()))
 
 # connect to mqtt broker
-try:
-    mqtt_client = mqtt.Client("kaifareader")
-    mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
-    mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
-except Exception as e:
-    print("Failed to connect: " + str(e))
-    sys.exit(40)
+if g_cfg.get_export_format() == 'MQTT':
+    try:
+        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
+        mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+    except Exception as e:
+        print("Failed to connect: " + str(e))
+        sys.exit(40)
 
 # main task endless loop
 while True:
