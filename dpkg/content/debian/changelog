@@ -1,3 +1,9 @@
+kaifareader (0.6) unstable; urgency=medium
+
+  * mqtt: only execute if configured (thanks to @boredomwontgetus)
+
+ -- Stefan Felkel <16918854+tirolerstefan@users.noreply.github.com>  Sun, 30 Jan 2022 20:24:53 +0100
+
 kaifareader (0.5) unstable; urgency=medium
 
   * added MQTT (thanks to @boredomwontgetus)
