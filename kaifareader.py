@@ -335,6 +335,20 @@ class Decrypt:
         else:
             return None
 
+
+def mqtt_on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        g_log.info("MQTT: Client connected; rc={}".format(rc))
+    else:
+        g_log.error("MQTT: Client bad RC; rc={}".format(rc))
+
+def mqtt_on_disconnect(client, userdata, rc):
+    g_log.info("MQTT: Client disconnected; rc={}".format(rc))
+    if rc != 0:
+        g_log.info("MQTT: Trying auto-reconnect; rc={}".format(rc))
+    else:
+        g_log.error("MQTT: Client bad RC; rc={}".format(rc))
+
 #
 # Script Start
 #
@@ -375,8 +389,11 @@ else:
 if g_cfg.get_export_format() == 'MQTT':
     try:
         mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client.on_connect = mqtt_on_connect
+        mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
         mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+        mqtt_client.loop_start()
     except Exception as e:
         print("Failed to connect: " + str(e))
         sys.exit(40)
@@ -467,5 +484,8 @@ while True:
 
     # export mqtt
     if g_cfg.get_export_format() == 'MQTT':
-        mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
-        mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+
