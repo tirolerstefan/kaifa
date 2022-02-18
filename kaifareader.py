@@ -59,6 +59,7 @@ class Supplier:
     name = None
     frame1_start_bytes_hex = '68fafa68'
     frame1_start_bytes = b'\x68\xfa\xfa\x68'  # 68 FA FA 68
+    frame2_end_bytes = b'\x16'
     ic_start_byte = None
     enc_data_start_byte = None
 
@@ -334,9 +335,25 @@ class Decrypt:
         else:
             return None
 
+
+def mqtt_on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        g_log.info("MQTT: Client connected; rc={}".format(rc))
+    else:
+        g_log.error("MQTT: Client bad RC; rc={}".format(rc))
+
+def mqtt_on_disconnect(client, userdata, rc):
+    g_log.info("MQTT: Client disconnected; rc={}".format(rc))
+    if rc != 0:
+        g_log.info("MQTT: Trying auto-reconnect; rc={}".format(rc))
+    else:
+        g_log.error("MQTT: Client bad RC; rc={}".format(rc))
+
 #
 # Script Start
 #
+
+serial_read_chunk_size=100
 
 g_cfg = Config(Constants.config_file)
 
@@ -372,8 +389,11 @@ else:
 if g_cfg.get_export_format() == 'MQTT':
     try:
         mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client.on_connect = mqtt_on_connect
+        mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
         mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+        mqtt_client.loop_start()
     except Exception as e:
         print("Failed to connect: " + str(e))
         sys.exit(40)
@@ -386,23 +406,34 @@ while True:
 
     frame1_start_pos = -1          # pos of start bytes of telegram 1 (in stream)
     frame2_start_pos = -1          # pos of start bytes of telegram 2 (in stream)
-    next_frame1_start_pos = -1     # pos of start bytes of NEXT telegram 1 (in stream)
 
     # "telegram fetching loop" (as long as we have found two full telegrams)
     # frame1 = first telegram (68fafa68), frame2 = second telegram (68727268)
-    # we need to wait for the "next" frame 1 to be sure that frame2 has completely arrived
     while True:
-        stream += g_ser.readline()
 
+        # Read in chunks. Each chunk will wait as long as specified by
+        # serial timeout. As the meters we tested send data every 5s the
+        # timeout must be <5. Lower timeouts make us fail quicker. 
+        byte_chunk = g_ser.read(size=serial_read_chunk_size)
+        stream += byte_chunk
         frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
         frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
-        if frame2_start_pos != -1:
-            next_frame1_start_pos = stream.find(g_supplier.frame1_start_bytes, frame2_start_pos)
+        # fail as early as possible if we find the segment is not complete yet. 
+        if (
+           (stream.find(g_supplier.frame1_start_bytes) < 0) or
+           (stream.find(g_supplier.frame2_start_bytes) <= 0) or
+           (stream[-1:] != g_supplier.frame2_end_bytes) or
+           (len(byte_chunk) == serial_read_chunk_size)
+           ):  
+            g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
+            g_log.debug("incomplete segment: {} ".format(stream))
+            g_log.debug("received chunk: {} ".format(byte_chunk))
+            continue
 
-        g_log.debug("pos: {} | {} | {}".format(frame1_start_pos, frame2_start_pos, next_frame1_start_pos))
+        g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
 
-        if (frame1_start_pos != -1) and (frame2_start_pos != -1) and (next_frame1_start_pos != -1):
+        if (frame2_start_pos != -1):
             # frame2_start_pos could be smaller than frame1_start_pos
             if frame2_start_pos < frame1_start_pos:
                 # start over with the stream from frame1 pos
@@ -453,5 +484,8 @@ while True:
 
     # export mqtt
     if g_cfg.get_export_format() == 'MQTT':
-        mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
-        mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+
