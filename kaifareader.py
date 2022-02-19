@@ -388,7 +388,7 @@ else:
 # connect to mqtt broker
 if g_cfg.get_export_format() == 'MQTT':
     try:
-        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client = mqtt.Client("kaifareader", clean_session=False)
         mqtt_client.on_connect = mqtt_on_connect
         mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
