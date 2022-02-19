@@ -55,7 +55,22 @@ A template file `meter_template.json` can be recycled for this.
   "export_mqtt_port": 1883,
   "export_mqtt_user": "mymqttuser",
   "export_mqtt_password": "supersecretmqttpass",
-  "export_mqtt_basetopic": "kaifareader"
+  "export_mqtt_basetopic": "kaifareader",
+  "wanted_values": [
+    "VoltageL1",
+    "VoltageL2",
+    "VoltageL3",
+    "CurrentL1",
+    "CurrentL2",
+    "CurrentL3",
+    "RealPowerIn",
+    "RealPowerOut",
+    "RealEnergyIn",
+    "RealEnergyOut",
+    "ReactiveEnergyIn",
+    "ReactiveEnergyOut",
+    "Factor"
+  ]
 }
 ```
 
@@ -65,6 +80,9 @@ Please provide your electricity supplier by the field "supplier". Because each s
 the telegrams differ. This script was tested with suppliers:
 - TINETZ
 - EVN
+
+Make sure to only select the values you need from the list in `wanted_values` by deleting the elements you don't want. 
+The logfile will show the related OBIS-Values when run in `logging.INFO`.
 
 ### Export
 
