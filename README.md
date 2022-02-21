@@ -84,7 +84,7 @@ the telegrams differ. This script was tested with suppliers:
 Make sure to only select the values you need from the list in `wanted_values` by deleting the elements you don't want. 
 The logfile will show the related OBIS-Values when run in `logging.INFO`.
 
-`interval` must be `<5` seconds, `1` seco0nd is recommended tho.
+`interval` must be `<5` seconds, `1` second is recommended tho.
 
 
 ### Export
