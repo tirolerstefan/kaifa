@@ -10,6 +10,7 @@ import signal
 import logging
 from logging.handlers import RotatingFileHandler
 import paho.mqtt.client as mqtt
+import time
 
 #
 # Trap CTRL+C
@@ -35,7 +36,7 @@ class Logger:
 
     def init(self):
         self._logger = logging.getLogger('kaifa')
-        handler = RotatingFileHandler(self._logfile, maxBytes=1024*1024*2, backupCount=1)
+        handler = RotatingFileHandler(self._logfile, maxBytes=1024*1024*10, backupCount=5)
         formatter = logging.Formatter('%(asctime)s [%(levelname)s]:  %(message)s')
         handler.setFormatter(formatter)
         self._logger.addHandler(handler)
@@ -270,7 +271,7 @@ class Decrypt:
         data_frame1 = frame1[supplier.enc_data_start_byte:len(frame1) - 2]  # start at byte 26 or 27 (dep on supplier), excluding 2 bytes at end: checksum byte, end byte 0x16
         data_frame2 = frame2[9:len(frame2) - 2]   # start at byte 10, excluding 2 bytes at end: checksum byte, end byte 0x16
         g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame1)))
-        g_log.debug("DATA FRAME1\n{}".format(binascii.hexlify(data_frame2)))
+        g_log.debug("DATA FRAME2\n{}".format(binascii.hexlify(data_frame2)))
         # print(binascii.hexlify(data_t1))
         # print(binascii.hexlify(data_t2))
         data_encrypted = data_frame1 + data_frame2
@@ -406,11 +407,13 @@ while True:
 
     frame1_start_pos = -1          # pos of start bytes of telegram 1 (in stream)
     frame2_start_pos = -1          # pos of start bytes of telegram 2 (in stream)
+    next_frame1_start_pos = -1     # pos of start bytes of NEXT telegram 1 (in stream)
 
     # "telegram fetching loop" (as long as we have found two full telegrams)
-    # frame1 = first telegram (68fafa68), frame2 = second telegram (68727268)
-    while True:
+    # frame1 = first telegram (e.g. 68fafa68), frame2 = second telegram (e.g. 68727268)
+    # we need to wait for frame 1, and then, for the "next" frame 1 to be sure that frame2 has completely arrived
 
+    while True:
         # Read in chunks. Each chunk will wait as long as specified by
         # serial timeout. As the meters we tested send data every 5s the
         # timeout must be <5. Lower timeouts make us fail quicker. 
@@ -419,21 +422,16 @@ while True:
         frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
         frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
-        # fail as early as possible if we find the segment is not complete yet. 
-        if (
-           (stream.find(g_supplier.frame1_start_bytes) < 0) or
-           (stream.find(g_supplier.frame2_start_bytes) <= 0) or
-           (stream[-1:] != g_supplier.frame2_end_bytes) or
-           (len(byte_chunk) == serial_read_chunk_size)
-           ):  
-            g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
-            g_log.debug("incomplete segment: {} ".format(stream))
-            g_log.debug("received chunk: {} ".format(byte_chunk))
-            continue
+        g_log.debug("(1) pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
+        g_log.debug("len(byte_chunk): {} | {}".format(len(byte_chunk), serial_read_chunk_size))
+        g_log.debug("len of stream: {} ".format(len(stream)))
 
-        g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
+        if frame2_start_pos != -1:
+            next_frame1_start_pos = stream.find(g_supplier.frame1_start_bytes, frame2_start_pos)
 
-        if (frame2_start_pos != -1):
+        g_log.debug("(2) pos: {} | {} | {}".format(frame1_start_pos, frame2_start_pos, next_frame1_start_pos))
+
+        if (frame1_start_pos != -1) and (frame2_start_pos != -1) and (next_frame1_start_pos != -1):
             # frame2_start_pos could be smaller than frame1_start_pos
             if frame2_start_pos < frame1_start_pos:
                 # start over with the stream from frame1 pos
