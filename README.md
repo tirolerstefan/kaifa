@@ -61,9 +61,10 @@ A template file `meter_template.json` can be recycled for this.
 
 The AES key format is "hex string", e.g. `a4f2d...`
 
-Please provide your electricity supplier by the field "supplier". Because each supplier uses its own security standard, 
-the telegrams differ. This script was tested with suppliers:
+Please provide your electricity supplier by the field "supplier". Because each supplier may use its own security standard, 
+the telegrams may differ. This script was tested with suppliers:
 - TINETZ
+- SALZBURGNETZ
 - EVN
 
 ### Export
