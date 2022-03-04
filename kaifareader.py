@@ -1,5 +1,6 @@
 #/usr/bin/python3
 
+import getopt
 import sys
 import re
 import serial
@@ -355,7 +356,30 @@ def mqtt_on_disconnect(client, userdata, rc):
 
 serial_read_chunk_size=100
 
-g_cfg = Config(Constants.config_file)
+
+prog_args = sys.argv[1:]
+t_args = prog_args.copy()
+
+configPath = Constants.config_file
+
+while True:
+    try:
+        opts, args = getopt.gnu_getopt(t_args, "h?c:",
+                                        ["help", "config="])
+        break
+    except getopt.error as e:
+        opt = e.msg.replace("option ", "").replace(" not recognized", "")
+        t_args.remove(opt)
+
+for opt, arg in opts:
+    if opt == "-c" or opt == "--config":
+        configPath = arg
+    elif opt == "-h" or opt == "--help":
+        print("-c --config Überschreibe Pfad der Config Datei.\n")
+        print(f"            Stadartpfad {Constants.config_file}")
+        exit()
+
+g_cfg = Config(configPath)
 
 if not g_cfg.load():
     print("Could not load config file")
