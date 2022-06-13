@@ -1,6 +1,6 @@
 [Unit]
 Description=kaifareader
-After=syslog.target network.target ntp.service
+After=network-online.target
 
 [Service]
 ExecStartPre=/bin/mkdir -p /var/run/kaifareader
