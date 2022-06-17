@@ -1,6 +1,7 @@
 [Unit]
 Description=kaifareader
-After=systemd-networkd-wait-online.service
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 ExecStartPre=/bin/mkdir -p /var/run/kaifareader
