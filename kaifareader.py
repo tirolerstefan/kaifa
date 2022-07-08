@@ -200,25 +200,121 @@ class Config:
         else:
             return self._config["export_mqtt_basetopic"]
 
+    def get_wanted_values(self):
+        if not "wanted_values" in self._config:
+            return None
+        else:
+            return self._config["wanted_values"]
+
 
 class Obis:
     def to_bytes(code):
         return bytes([int(a) for a in code.split(".")])
-    VoltageL1 = to_bytes("01.0.32.7.0.255")
-    VoltageL2 = to_bytes("01.0.52.7.0.255")
-    VoltageL3 = to_bytes("01.0.72.7.0.255")
-    CurrentL1 = to_bytes("1.0.31.7.0.255")
-    CurrentL2 = to_bytes("1.0.51.7.0.255")
-    CurrentL3 = to_bytes("1.0.71.7.0.255")
-    RealPowerIn = to_bytes("1.0.1.7.0.255")
-    RealPowerOut = to_bytes("1.0.2.7.0.255")
-    RealEnergyIn = to_bytes("1.0.1.8.0.255")
-    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
-    RealEnergyOut = to_bytes("1.0.2.8.0.255")
-    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
-    ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
-    ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
-    Factor = to_bytes("01.0.13.7.0.255")
+    VoltageL1 = {
+        "pos": "32.7.0",
+        "byte": to_bytes("01.0.32.7.0.255"),
+        "desc_name": "Voltage L1",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "VoltageL1_V"
+    }
+    VoltageL2 = {
+        "pos": "52.7.0",
+        "byte": to_bytes("01.0.52.7.0.255"),
+        "desc_name": "Voltage L2",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "VoltageL2_V"
+    }
+    VoltageL3 = {
+        "pos": "72.7.0",
+        "byte": to_bytes("01.0.72.7.0.255"),
+        "desc_name": "Voltage L3",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "VoltageL3_V"
+    }
+    CurrentL1 = {
+        "pos": "31.7.0",
+        "byte": to_bytes("1.0.31.7.0.255"),
+        "desc_name": "Current L1",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "CurrentL1_A"
+    }
+    CurrentL2 = {
+        "pos": "51.7.0",
+        "byte": to_bytes("1.0.51.7.0.255"),
+        "desc_name": "Current L2",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "CurrentL2_A"
+    }
+    CurrentL3 = {
+        "pos": "71.7.0",
+        "byte": to_bytes("1.0.71.7.0.255"),
+        "desc_name": "Current L3",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "mqtt_topic": "CurrentL3_A"
+    }
+    RealPowerIn = {
+        "pos": "1.7.0",
+        "byte": to_bytes("1.0.1.7.0.255"),
+        "desc_name": "InstantaneousPower In",
+        "unit": "W",
+        "mod": None,
+        "mqtt_topic": "InstantaneousPowerIn_W"
+    }
+    RealPowerOut = {
+        "pos": "2.7.0",
+        "byte": to_bytes("1.0.2.7.0.255"),
+        "desc_name": "InstantaneousPower Out",
+        "unit": "W",
+        "mod": None,
+        "mqtt_topic": "InstantaneousPowerOut_W"
+    }
+    RealEnergyIn = {
+        "pos": "1.8.0",
+        "byte": to_bytes("1.0.1.8.0.255"),
+        "desc_name": "ActiveEnergy In",
+        "unit": "kWh",
+        "mod": "self.obis[d['byte']] / 1000",
+        "mqtt_topic": "ActiveEnergyIn_kWh"
+    }
+    RealEnergyOut = {
+        "pos": "2.8.0",
+        "byte": to_bytes("1.0.2.8.0.255"),
+        "desc_name": "ActiveEnergy Out",
+        "unit": "kWh",
+        "mod": "self.obis[d['byte']] / 1000",
+        "mqtt_topic": "ActiveEnergyOut_kWh"
+    }
+    ReactiveEnergyIn = {
+        "pos": "3.8.0",
+        "byte": to_bytes("1.0.3.8.0.255"),
+        "desc_name": "ReactiveEnergy In",
+        "unit": "W",
+        "mod": None,
+        "mqtt_topic": "ReactiveEnergyIn_W"
+    }
+    ReactiveEnergyOut = {
+        "pos": "4.8.0",
+        "byte": to_bytes("1.0.4.8.0.255"),
+        "desc_name": "ReactiveEnergy Out",
+        "unit": "W",
+        "mod": None,
+        "mqtt_topic": "ReactiveEnergyOut_W"
+    }
+    Factor = {
+        "pos": "13.7.0",
+        "byte": to_bytes("01.0.13.7.0.255"),
+        "desc_name": "Factor",
+        "unit": "",
+        "mod": "round(self.obis[d['byte']],3)",
+        "mqtt_topic": "Factor"
+    }
+
 
 
 class Exporter:
@@ -227,8 +323,10 @@ class Exporter:
         self._format = exp_format
         self._export_map = {}
 
-    def set_value(self, obis_string, value):
-        self._export_map[obis_string] = value
+    def set_value(self, obis_string, value, unit):
+        self._export_map[obis_string] = {}
+        self._export_map[obis_string]["value"] = value
+        self._export_map[obis_string]["unit"] = unit
 
     def _write_out_solarview(self, file):
         file.write("/?!\n")       # Start bytes
@@ -236,7 +334,7 @@ class Exporter:
 
         for key in self._export_map.keys():
             # e.g. 1.8.0(005305.034*kWh)
-            file.write("{}({:010.3F}*kWh)\n".format(key, self._export_map[key]))
+            file.write("{}({:010.3F}*{})\n".format(key,self._export_map[key]['value'], self._export_map[key]['unit']))
 
         file.write("!\n")         # End byte
 
@@ -323,18 +421,43 @@ class Decrypt:
                 self.obis[obis_code] = octet
                 g_log.debug("OCTET: {}, {}".format(octet_len, octet))
 
-    def get_act_energy_pos_kwh(self):
-        if Obis.RealEnergyIn in self.obis:
-            return self.obis[Obis.RealEnergyIn] / 1000
+    def get_generic_name(self, name):
+        d = getattr(Obis, name)
+        if 'desc_name' in d:
+            return d['desc_name']
         else:
             return None
 
-    def get_act_energy_neg_kwh(self):
-        if Obis.RealEnergyOut in self.obis:
-            return self.obis[Obis.RealEnergyOut] / 1000
+    def get_generic_position(self, name):
+        d = getattr(Obis, name)
+        if 'pos' in d:
+            return d['pos']
         else:
             return None
 
+    def get_generic_unit(self, name):
+        d = getattr(Obis, name)
+        if 'unit' in d:
+            return d['unit']
+        else:
+            return None
+
+    def get_generic_value(self, name):
+        d = getattr(Obis, name)
+        if d['byte'] in self.obis:
+            if d['mod'] != None:
+                return(eval(d['mod']))
+            else:
+                return self.obis[d['byte']]
+        else:
+            return None
+
+    def get_generic_mqtttopic(self, name):
+        d = getattr(Obis, name)
+        if 'mqtt_topic' in d:
+            return d['mqtt_topic']
+        else:
+            return None
 
 def mqtt_on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -388,11 +511,11 @@ else:
 # connect to mqtt broker
 if g_cfg.get_export_format() == 'MQTT':
     try:
-        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client = mqtt.Client("kaifareader", clean_session=False)
         mqtt_client.on_connect = mqtt_on_connect
         mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
-        mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+        mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port(), keepalive=7)
         mqtt_client.loop_start()
     except Exception as e:
         print("Failed to connect: " + str(e))
@@ -425,7 +548,7 @@ while True:
            (stream.find(g_supplier.frame2_start_bytes) <= 0) or
            (stream[-1:] != g_supplier.frame2_end_bytes) or
            (len(byte_chunk) == serial_read_chunk_size)
-           ):  
+           ):
             g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
             g_log.debug("incomplete segment: {} ".format(stream))
             g_log.debug("received chunk: {} ".format(byte_chunk))
@@ -470,22 +593,22 @@ while True:
     dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
     dec.parse_all()
 
-    g_log.info("1.8.0: {}".format(str(dec.get_act_energy_pos_kwh())))
-    g_log.info("2.8.0: {}".format(str(dec.get_act_energy_neg_kwh())))
+    for e in g_cfg.get_wanted_values():
+        g_log.info("{0:6}: {1:26}: {2:10}".format(dec.get_generic_position(e),dec.get_generic_name(e)+" ("+dec.get_generic_unit(e)+")",str(dec.get_generic_value(e))))
 
     # export solarview
     if g_cfg.get_export_format() == 'SOLARVIEW':
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-        exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
-        exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
+        for e in g_cfg.get_wanted_values():
+            if dec.get_generic_value(e) != None:
+                exp.set_value(dec.get_generic_position(e), dec.get_generic_value(e), dec.get_generic_unit(e))
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
 
     # export mqtt
     if g_cfg.get_export_format() == 'MQTT':
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
-        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
-        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        for e in g_cfg.get_wanted_values():
+            mqtt_pub_ret = mqtt_client.publish("{}/{}".format(g_cfg.get_export_mqtt_basetopic(),dec.get_generic_mqtttopic(e)), dec.get_generic_value(e))
+            g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
 

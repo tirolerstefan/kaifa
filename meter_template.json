@@ -15,5 +15,20 @@
   "export_mqtt_port": 1883,
   "export_mqtt_user": "mymqttuser",
   "export_mqtt_password": "supersecretmqttpass",
-  "export_mqtt_basetopic": "kaifareader"
+  "export_mqtt_basetopic": "kaifareader",
+  "wanted_values": [
+    "VoltageL1",
+    "VoltageL2",
+    "VoltageL3",
+    "CurrentL1",
+    "CurrentL2",
+    "CurrentL3",
+    "RealPowerIn",
+    "RealPowerOut",
+    "RealEnergyIn",
+    "RealEnergyOut",
+    "ReactiveEnergyIn",
+    "ReactiveEnergyOut",
+    "Factor"
+  ]
 }
