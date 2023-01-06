@@ -83,6 +83,7 @@ class SupplierEVN(Supplier):
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
     export_format_solarview = "SOLARVIEW"
+    export_format_json = "JSON"
 
 class DataType:
     NullData = 0x00
@@ -240,11 +241,17 @@ class Exporter:
 
         file.write("!\n")         # End byte
 
+    def _write_out_json(self, file):
+        json_object = json.dumps(self._export_map, indent=4)
+        file.write(json_object)
+
     def write_out(self):
         try:
             with open(self._file, "w") as f:
                 if self._format == Constants.export_format_solarview:
                     self._write_out_solarview(f)
+                elif self._format == Constants.export_format_json:
+                    self._write_out_json(f)
         except Exception as e:
             g_log.error("Error writing to file {}: {}".format(self._file, str(e)))
             return False
@@ -322,6 +329,18 @@ class Decrypt:
                 pos += 1 + octet_len + 2
                 self.obis[obis_code] = octet
                 g_log.debug("OCTET: {}, {}".format(octet_len, octet))
+
+    def get_act_power_pos_kw(self):
+        if Obis.RealPowerIn in self.obis:
+            return self.obis[Obis.RealPowerIn] / 1000
+        else:
+            return None
+
+    def get_act_power_neg_kw(self):
+        if Obis.RealPowerOut in self.obis:
+            return self.obis[Obis.RealPowerOut] / 1000
+        else:
+            return None
 
     def get_act_energy_pos_kwh(self):
         if Obis.RealEnergyIn in self.obis:
@@ -468,14 +487,25 @@ while True:
     dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
     dec.parse_all()
 
-    g_log.info("1.8.0: {}".format(str(dec.get_act_energy_pos_kwh())))
-    g_log.info("2.8.0: {}".format(str(dec.get_act_energy_neg_kwh())))
+    g_log.info("1.7.0: {} 2.7.0 {}".format(str(dec.get_act_power_pos_kw()), str(dec.get_act_power_neg_kw())))
+    g_log.info("1.8.0: {} 2.8.0 {}".format(str(dec.get_act_energy_pos_kwh()), str(dec.get_act_energy_neg_kwh())))
+
+    # export json
+    if g_cfg.get_export_format() == Constants.export_format_json:
+        exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
+        exp.set_value("1.7.0", dec.get_act_power_pos_kw())
+        exp.set_value("1.8.0", dec.get_act_energy_pos_kwh())
+        exp.set_value("2.7.0", dec.get_act_power_neg_kw())
+        exp.set_value("2.8.0", dec.get_act_energy_neg_kwh())
+        if not exp.write_out():
+            g_log.error("Could not export data")
+            sys.exit(50)
 
     # export solarview
-    if g_cfg.get_export_format() == 'SOLARVIEW':
+    if g_cfg.get_export_format() == Constants.export_format_solarview:
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-        exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
-        exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
+        exp.set_value("1.8.0", dec.get_act_energy_pos_kwh())
+        exp.set_value("2.8.0", dec.get_act_energy_neg_kwh())
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
