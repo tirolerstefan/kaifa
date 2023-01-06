@@ -135,3 +135,12 @@ Press CTRL+C
 
 Possible by killing the process
 
+
+## TODO
+
+Add
+- 1.8.1 (HT)
+- 1.8.2 (NT)
+- 2.8.1 (HT-)
+- 2.8.2 (NT-)
+

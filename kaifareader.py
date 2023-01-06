@@ -214,9 +214,7 @@ class Obis:
     RealPowerIn = to_bytes("1.0.1.7.0.255")
     RealPowerOut = to_bytes("1.0.2.7.0.255")
     RealEnergyIn = to_bytes("1.0.1.8.0.255")
-    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
     RealEnergyOut = to_bytes("1.0.2.8.0.255")
-    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
     ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
     ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
     Factor = to_bytes("01.0.13.7.0.255")
@@ -407,7 +405,7 @@ else:
 # connect to mqtt broker
 if g_cfg.get_export_format() == 'MQTT':
     try:
-        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client = mqtt.Client(g_cfg.get_export_mqtt_basetopic())
         mqtt_client.on_connect = mqtt_on_connect
         mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
@@ -512,8 +510,12 @@ while True:
 
     # export mqtt
     if g_cfg.get_export_format() == 'MQTT':
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/1.7.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_power_pos_kw())
         g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/2.7.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_power_neg_kw())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/1.8.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/2.8.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
         g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
 
