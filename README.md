@@ -2,8 +2,8 @@
 
 ## Overview
 
-This script was made to read out the new Smart Meter "Kaifa MA309"
-used by Austrian power grid operators, here tested with TINETZ and EVN.
+This script was made to read out the new Smart Meter "Kaifa MA309" used by Austrian power grid operators.<br>
+Tested with KSM-West (Vorarlbergnetz e.g. VKW).
 
 Specification of the interface:
 https://www.tinetz.at/fileadmin/user_upload/Kundenservice/pdf/Beschreibung_Kundenschnittstelle_Smart_Meter_TINETZ.pdf
@@ -39,23 +39,28 @@ A template file `meter_template.json` can be recycled for this.
 
 ```
 {
-  "loglevel": "logging.INFO",
-  "logfile": "/var/log/kaifareader/kaifa.log",
+  "loglevel": "logging.DEBUG",
   "port": "/dev/ttyUSB0",
   "baudrate": 2400,
-  "parity": "serial.PARITY_NONE",
+  "parity": "serial.PARITY_EVEN",
   "stopbits": "serial.STOPBITS_ONE",
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
-  "interval": 15,
-  "supplier": "TINETZ",
-  "export_format": "SOLARVIEW",
-  "export_file_abspath": "/var/run/kaifareader/kaifa.txt",
-  "export_mqtt_server": "mymqtt.examplebroker.com",
-  "export_mqtt_port": 1883,
-  "export_mqtt_user": "mymqttuser",
-  "export_mqtt_password": "supersecretmqttpass",
-  "export_mqtt_basetopic": "kaifareader"
+  "supplier": "KSMWest",
+  "file_export_enabled": true,
+  "file_export_abspath": "/etc/kaifareader/export.txt",
+  "mqtt_enabled": false,
+  "mqtt_server": "192.168.0.99",
+  "mqtt_port": 1883,
+  "mqtt_user": "",
+  "mqtt_password": "",
+  "mqtt_basetopic": "kaifareader",
+  "influxdb_enabled": false,
+  "influxdb_url": "http://192.168.0.99:8086",
+  "influxdb_token": "",
+  "influxdb_org": "local",
+  "influxdb_bucket": "kaifareader",
+  "influxdb_measurement": "smartmeter"
 }
 ```
 
@@ -63,75 +68,40 @@ The AES key format is "hex string", e.g. `a4f2d...`
 
 Please provide your electricity supplier by the field "supplier". Because each supplier uses its own security standard, 
 the telegrams differ. This script was tested with suppliers:
-- TINETZ
+- KSMWest
 - EVN
 
 ### Export
 
-**Solarview**
+**File**
 
 Currently, the export to a file readable by Solarview (http://solarview.info/)
 is supported.
 
-- The config key `export_format` has to be set to `SOLARVIEW`
-- The config key `export_file_abspath` has to be set to the absolute file path
+- The config key `file_export_enabled` has to be set to `true`
+- The config key `file_export_abspath` has to be set to the absolute file path
 
 **MQTT**
 
-- The config key `export_format` has to be set to `MQTT`
-- The config keys `export_mqtt_server`, `export_mqtt_port`,
-  `export_mqtt_user`, `export_mqtt_password` and `export_mqtt_basetopic`
+- The config key `mqtt_enabled` has to be set to `true`
+- The config keys `mqtt_server`, `mqtt_port`,
+  `mqtt_user`, `mqtt_password` and `mqtt_basetopic`
   have to be set.
 
-## Installation
+**influxdb v2**
 
-### Systemd automatic service
+- The config key `influxdb_enabled` has to be set to `true`
+- The config keys `influxdb_url`, `influxdb_token`,
+  `influxdb_org`, `influxdb_bucket` and `influxdb_measurement`
+  have to be set.
+  
+## Run on docker
 
-This installs and automatically starts a systemd service.
-
-Install the debian package 
-
-`sudo dpkg -i kaifareader_...deb`
-
-If there are problems on missing packages, execute afterwards:
-
-`sudo apt -f install`
-
-## Start
-
-### Automatically, if service is installed and running
-
-Startup done, automatically.
-
-Status of the service:
-
-`sudo systemctl status kaifareader`
-
-Start manually (e.g. after manually stopped)
-
-`sudo systemctl start kaifareader`
-
-### Manually
-
-#### Foreground
-
-`python3 kaifa.py`
-
-#### Background
-
-`nohup python3 kaifa.py &`
-
-## Stop
-
-### If service is installed and running
-
-`sudo systemctl stop kaifareader`
-
-### Foreground
-
-Press CTRL+C
-
-### Background
-
-Possible by killing the process
-
+```
+docker run -d \
+    --name=kaifareader \
+    --restart unless-stopped \
+    -v kaifareader-config:/etc/kaifareader \
+    --device=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A10MLN5Z-if00-port0:/dev/ttyUSB0 \
+    phil1pp/kaifareader
+```

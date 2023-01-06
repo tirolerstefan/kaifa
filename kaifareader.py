@@ -8,37 +8,37 @@ from Cryptodome.Cipher import AES
 import json
 import signal
 import logging
-from logging.handlers import RotatingFileHandler
 import paho.mqtt.client as mqtt
-
-#
-# Trap CTRL+C
-#
-def signal_handler(sig, frame):
-    print('Aborted by user with Ctrl+C!')
-    g_ser.close()
-    sys.exit(0)
-
-
-# create signal handler
-signal.signal(signal.SIGINT, signal_handler)
+from influxdb_client import Point, InfluxDBClient, WriteOptions
 
 # global logging object will be initialized after config is parsed
 g_log = None
 
+#
+# Trap docker STOP
+#
+def signal_handler(sig, frame):
+    #print('Container stopped!')
+    g_log.error("Container stopped!")
+    g_ser.close()
+    sys.exit(0)
+
+# create signal handler
+signal.signal(signal.SIGTERM, signal_handler)
 
 class Logger:
-    def __init__(self, logfile, level):
-        self._logfile = logfile
+    def __init__(self, level):
         self._level = level
         self._logger = None
 
     def init(self):
         self._logger = logging.getLogger('kaifa')
-        handler = RotatingFileHandler(self._logfile, maxBytes=1024*1024*2, backupCount=1)
+        handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter('%(asctime)s [%(levelname)s]:  %(message)s')
         handler.setFormatter(formatter)
         self._logger.addHandler(handler)
+        self._logger.setLevel(logging.DEBUG)
+        self._logger.info("KAIFA smart meter reader started")
         self._logger.setLevel(self._level)
 
     def set_level(self, level):
@@ -54,7 +54,6 @@ class Logger:
     def error(self, s):
         self._logger.error(s)
 
-
 class Supplier:
     name = None
     frame1_start_bytes_hex = '68fafa68'
@@ -63,14 +62,12 @@ class Supplier:
     ic_start_byte = None
     enc_data_start_byte = None
 
-
-class SupplierTINETZ(Supplier):
-    name = "TINETZ"
+class SupplierKSMWest(Supplier):
+    name = "KSMWest" #Kooperation Smart Meter West
     frame2_start_bytes_hex = '68727268'
     frame2_start_bytes = b'\x68\x72\x72\x68'  # 68 72 72 68
     ic_start_byte = 23
     enc_data_start_byte = 27
-
 
 class SupplierEVN(Supplier):
     name = "EVN"
@@ -79,10 +76,8 @@ class SupplierEVN(Supplier):
     ic_start_byte = 22
     enc_data_start_byte = 26
 
-
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
-    export_format_solarview = "SOLARVIEW"
 
 class DataType:
     NullData = 0x00
@@ -131,9 +126,6 @@ class Config:
     def get_loglevel(self):
         return eval(self._config["loglevel"])
 
-    def get_logfile(self):
-        return self._config["logfile"]
-
     def get_port(self):
         return self._config["port"]
 
@@ -152,58 +144,97 @@ class Config:
     def get_key_hex_string(self):
         return self._config["key_hex_string"]
 
-    def get_interval(self):
-        return self._config["interval"]
-
     def get_supplier(self):
         return str(self._config["supplier"])
 
-    def get_export_format(self):
-        if not "export_format" in self._config:
+    def get_file_export_enabled(self):
+        if not "file_export_enabled" in self._config:
             return None
         else:
-            return self._config["export_format"]
+            return self._config["file_export_enabled"]
 
-    def get_export_file_abspath(self):
-        if not "export_file_abspath" in self._config:
+    def get_file_export_abspath(self):
+        if not "file_export_abspath" in self._config:
             return None
         else:
-            return self._config["export_file_abspath"]
+            return self._config["file_export_abspath"]
 
-    def get_export_mqtt_server(self):
-        if not "export_mqtt_server" in self._config:
+    def get_mqtt_enabled(self):
+        if not "mqtt_enabled" in self._config:
             return None
         else:
-            return self._config["export_mqtt_server"]
+            return self._config["mqtt_enabled"]
 
-    def get_export_mqtt_port(self):
-        if not "export_mqtt_port" in self._config:
+    def get_mqtt_server(self):
+        if not "mqtt_server" in self._config:
             return None
         else:
-            return self._config["export_mqtt_port"]
+            return self._config["mqtt_server"]
 
-    def get_export_mqtt_user(self):
-        if not "export_mqtt_user" in self._config:
+    def get_mqtt_port(self):
+        if not "mqtt_port" in self._config:
             return None
         else:
-            return self._config["export_mqtt_user"]
+            return self._config["mqtt_port"]
 
-    def get_export_mqtt_password(self):
-        if not "export_mqtt_password" in self._config:
+    def get_mqtt_user(self):
+        if not "mqtt_user" in self._config:
             return None
         else:
-            return self._config["export_mqtt_password"]
+            return self._config["mqtt_user"]
 
-    def get_export_mqtt_basetopic(self):
-        if not "export_mqtt_basetopic" in self._config:
+    def get_mqtt_password(self):
+        if not "mqtt_password" in self._config:
             return None
         else:
-            return self._config["export_mqtt_basetopic"]
+            return self._config["mqtt_password"]
 
+    def get_mqtt_basetopic(self):
+        if not "mqtt_basetopic" in self._config:
+            return None
+        else:
+            return self._config["mqtt_basetopic"]
+
+    def get_influxdb_enabled(self):
+        if not "influxdb_enabled" in self._config:
+            return None
+        else:
+            return self._config["influxdb_enabled"]
+
+    def get_influxdb_url(self):
+        if not "influxdb_url" in self._config:
+            return None
+        else:
+            return self._config["influxdb_url"]
+
+    def get_influxdb_token(self):
+        if not "influxdb_token" in self._config:
+            return None
+        else:
+            return self._config["influxdb_token"]
+
+    def get_influxdb_org(self):
+        if not "influxdb_org" in self._config:
+            return None
+        else:
+            return self._config["influxdb_org"]
+
+    def get_influxdb_bucket(self):
+        if not "influxdb_bucket" in self._config:
+            return None
+        else:
+            return self._config["influxdb_bucket"]
+
+    def get_influxdb_measurement(self):
+        if not "influxdb_measurement" in self._config:
+            return None
+        else:
+            return self._config["influxdb_measurement"]
 
 class Obis:
     def to_bytes(code):
         return bytes([int(a) for a in code.split(".")])
+    VoltageL1 = to_bytes("01.0.32.7.0.255")
     VoltageL1 = to_bytes("01.0.32.7.0.255")
     VoltageL2 = to_bytes("01.0.52.7.0.255")
     VoltageL3 = to_bytes("01.0.72.7.0.255")
@@ -213,18 +244,19 @@ class Obis:
     RealPowerIn = to_bytes("1.0.1.7.0.255")
     RealPowerOut = to_bytes("1.0.2.7.0.255")
     RealEnergyIn = to_bytes("1.0.1.8.0.255")
-    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
     RealEnergyOut = to_bytes("1.0.2.8.0.255")
-    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
     ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
     ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
     Factor = to_bytes("01.0.13.7.0.255")
-
+    DateAndTime = to_bytes("0.0.1.0.0.255")
+    DeviceNumber = to_bytes("0.0.96.1.0.255")
+    DeviceName = to_bytes("0.0.42.0.0.255")
+    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
+    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
 
 class Exporter:
-    def __init__(self, file, exp_format):
+    def __init__(self, file):
         self._file = file
-        self._format = exp_format
         self._export_map = {}
 
     def set_value(self, obis_string, value):
@@ -243,14 +275,12 @@ class Exporter:
     def write_out(self):
         try:
             with open(self._file, "w") as f:
-                if self._format == Constants.export_format_solarview:
-                    self._write_out_solarview(f)
+                self._write_out_solarview(f)
         except Exception as e:
             g_log.error("Error writing to file {}: {}".format(self._file, str(e)))
             return False
 
         return True
-
 
 # class Decrypt
 # with help of @micronano
@@ -323,18 +353,11 @@ class Decrypt:
                 self.obis[obis_code] = octet
                 g_log.debug("OCTET: {}, {}".format(octet_len, octet))
 
-    def get_act_energy_pos_kwh(self):
-        if Obis.RealEnergyIn in self.obis:
-            return self.obis[Obis.RealEnergyIn] / 1000
+    def getObisValue(self, obisCode):
+        if obisCode in self.obis:
+            return self.obis[obisCode]
         else:
             return None
-
-    def get_act_energy_neg_kwh(self):
-        if Obis.RealEnergyOut in self.obis:
-            return self.obis[Obis.RealEnergyOut] / 1000
-        else:
-            return None
-
 
 def mqtt_on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -354,6 +377,7 @@ def mqtt_on_disconnect(client, userdata, rc):
 #
 
 serial_read_chunk_size=100
+serial_timeout=1
 
 g_cfg = Config(Constants.config_file)
 
@@ -361,7 +385,7 @@ if not g_cfg.load():
     print("Could not load config file")
     sys.exit(10)
 
-g_log = Logger(g_cfg.get_logfile(), g_cfg.get_loglevel())
+g_log = Logger(g_cfg.get_loglevel())
 
 try:
     g_log.init()
@@ -376,28 +400,38 @@ g_ser = serial.Serial(
         parity = g_cfg.get_parity(),
         stopbits = g_cfg.get_stopbits(),
         bytesize = g_cfg.get_bytesize(),
-        timeout = g_cfg.get_interval())
+        timeout = serial_timeout)
 
-if g_cfg.get_supplier().upper() == SupplierTINETZ.name:
-    g_supplier = SupplierTINETZ()
-elif g_cfg.get_supplier().upper() == SupplierEVN.name:
+if g_cfg.get_supplier().lower() == SupplierKSMWest.name.lower():
+    g_supplier = SupplierKSMWest()
+elif g_cfg.get_supplier().lower() == SupplierEVN.name.lower():
     g_supplier = SupplierEVN()
 else:
     raise Exception("Supplier not supported: {}".format(g_cfg.get_supplier()))
 
 # connect to mqtt broker
-if g_cfg.get_export_format() == 'MQTT':
+if g_cfg.get_mqtt_enabled():
     try:
-        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client = mqtt.Client("kaifareader", clean_session=False)
         mqtt_client.on_connect = mqtt_on_connect
         mqtt_client.on_disconnect = mqtt_on_disconnect
-        mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
-        mqtt_client.connect(g_cfg.get_export_mqtt_server(), port=g_cfg.get_export_mqtt_port())
+        mqtt_client.username_pw_set(g_cfg.get_mqtt_user(), g_cfg.get_mqtt_password())
+        mqtt_client.connect(g_cfg.get_mqtt_server(), port=g_cfg.get_mqtt_port(), keepalive=7)
         mqtt_client.loop_start()
     except Exception as e:
-        print("Failed to connect: " + str(e))
+        print("Failed to connect to mqtt server: " + str(e))
         sys.exit(40)
 
+# connect to influxdb
+if g_cfg.get_influxdb_enabled():
+    try:
+        influxdb_client = InfluxDBClient(url=g_cfg.get_influxdb_url(), token=g_cfg.get_influxdb_token(), org=g_cfg.get_influxdb_org())
+        influxdb_write_api = influxdb_client.write_api()
+        g_log.info("influxdb: Client connected")
+    except Exception as e:
+        print("Failed to connect to influxdb: " + str(e))
+        sys.exit(40)
+        
 # main task endless loop
 while True:
     stream = b''      # filled by serial device
@@ -420,15 +454,10 @@ while True:
         frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
         # fail as early as possible if we find the segment is not complete yet. 
-        if (
-           (stream.find(g_supplier.frame1_start_bytes) < 0) or
-           (stream.find(g_supplier.frame2_start_bytes) <= 0) or
-           (stream[-1:] != g_supplier.frame2_end_bytes) or
-           (len(byte_chunk) == serial_read_chunk_size)
-           ):  
+        if (frame1_start_pos < 0 or frame2_start_pos <= 0 or stream[-1:] != g_supplier.frame2_end_bytes):
             g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
-            g_log.debug("incomplete segment: {} ".format(stream))
-            g_log.debug("received chunk: {} ".format(byte_chunk))
+            g_log.debug("incomplete segment: {} ".format(binascii.hexlify(stream).upper()))
+            g_log.debug("received chunk: {} ".format(binascii.hexlify(byte_chunk).upper()))
             continue
 
         g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
@@ -470,22 +499,48 @@ while True:
     dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
     dec.parse_all()
 
-    g_log.info("1.8.0: {}".format(str(dec.get_act_energy_pos_kwh())))
-    g_log.info("2.8.0: {}".format(str(dec.get_act_energy_neg_kwh())))
+    g_log.info("{}: {:.3f}kWh".format(Obis.RealEnergyIn_S, dec.getObisValue(Obis.RealEnergyIn)/1000))
+    g_log.info("{}: {:.3f}kWh".format(Obis.RealEnergyOut_S, dec.getObisValue(Obis.RealEnergyOut)/1000))
 
-    # export solarview
-    if g_cfg.get_export_format() == 'SOLARVIEW':
-        exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-        exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
-        exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
+    # file export
+    if g_cfg.get_file_export_enabled():
+        exp = Exporter(g_cfg.get_file_export_abspath())
+        exp.set_value(Obis.RealEnergyIn_S, dec.getObisValue(Obis.RealEnergyIn)/1000)
+        exp.set_value(Obis.RealEnergyOut_S, dec.getObisValue(Obis.RealEnergyOut)/1000)
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
 
-    # export mqtt
-    if g_cfg.get_export_format() == 'MQTT':
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
-        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
-        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+    # mqtt
+    if g_cfg.get_mqtt_enabled():
+        mqtt_client.publish("{}/VoltageL1".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL1)))
+        mqtt_client.publish("{}/VoltageL2".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL2)))
+        mqtt_client.publish("{}/VoltageL3".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL3)))
+        mqtt_client.publish("{}/CurrentL1".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL1)))
+        mqtt_client.publish("{}/CurrentL2".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL2)))
+        mqtt_client.publish("{}/CurrentL3".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL3)))
+        mqtt_client.publish("{}/RealPowerIn".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealPowerIn)))
+        mqtt_client.publish("{}/RealPowerOut".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealPowerOut)))
+        mqtt_client.publish("{}/RealEnergyIn".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealEnergyIn)))
+        mqtt_client.publish("{}/RealEnergyOut".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealEnergyOut)))
+        mqtt_client.publish("{}/ReactiveEnergyInductive".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.ReactiveEnergyIn)))
+        mqtt_client.publish("{}/ReactiveEnergyCapacitive".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.ReactiveEnergyOut)))
+        mqtt_client.publish("{}/DeviceNumber".format(g_cfg.get_mqtt_basetopic()), dec.getObisValue(Obis.DeviceNumber))
+        mqtt_client.publish("{}/DeviceName".format(g_cfg.get_mqtt_basetopic()), dec.getObisValue(Obis.DeviceName))
 
+    # influxdb
+    if g_cfg.get_influxdb_enabled():
+        p = Point(g_cfg.get_influxdb_measurement()) \
+            .field("VoltageL1", float(dec.getObisValue(Obis.VoltageL1))) \
+            .field("VoltageL2", float(dec.getObisValue(Obis.VoltageL2))) \
+            .field("VoltageL3", float(dec.getObisValue(Obis.VoltageL3))) \
+            .field("CurrentL1", float(dec.getObisValue(Obis.CurrentL1))) \
+            .field("CurrentL2", float(dec.getObisValue(Obis.CurrentL2))) \
+            .field("CurrentL3", float(dec.getObisValue(Obis.CurrentL3))) \
+            .field("RealPowerIn", int(dec.getObisValue(Obis.RealPowerIn))) \
+            .field("RealPowerOut", int(dec.getObisValue(Obis.RealPowerOut))) \
+            .field("RealEnergyIn", int(dec.getObisValue(Obis.RealEnergyIn))) \
+            .field("RealEnergyOut", int(dec.getObisValue(Obis.RealEnergyOut))) \
+            .field("ReactiveEnergyInductive", int(dec.getObisValue(Obis.ReactiveEnergyIn))) \
+            .field("ReactiveEnergyCapacitive", int(dec.getObisValue(Obis.ReactiveEnergyOut)))
+        influxdb_write_api.write(bucket=g_cfg.get_influxdb_bucket(), org=g_cfg.get_influxdb_org(), record=p)
