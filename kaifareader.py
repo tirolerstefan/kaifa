@@ -369,14 +369,14 @@ except Exception as e:
     print("Could not initialize logging system: " + str(e))
     sys.exit(20)
 
-
+# timeout must be < 5
 g_ser = serial.Serial(
         port = g_cfg.get_port(),
         baudrate = g_cfg.get_baud(),
         parity = g_cfg.get_parity(),
         stopbits = g_cfg.get_stopbits(),
         bytesize = g_cfg.get_bytesize(),
-        timeout = g_cfg.get_interval())
+        timeout = g_cfg.get_interval()) if g_cfg.get_interval() < 5 else 4
 
 if g_cfg.get_supplier().upper() == SupplierTINETZ.name:
     g_supplier = SupplierTINETZ()
@@ -419,27 +419,25 @@ while True:
         frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
         frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
+        if(frame2_start_pos < frame1_start_pos):
+            stream = stream[frame1_start_pos:len(stream)]
+            frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
+            frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
+
         # fail as early as possible if we find the segment is not complete yet. 
         if (
-           (stream.find(g_supplier.frame1_start_bytes) < 0) or
-           (stream.find(g_supplier.frame2_start_bytes) <= 0) or
+           (frame1_start_pos < 0) or (frame2_start_pos <= 0) or
            (stream[-1:] != g_supplier.frame2_end_bytes) or
            (len(byte_chunk) == serial_read_chunk_size)
            ):  
-            g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
-            g_log.debug("incomplete segment: {} ".format(stream))
-            g_log.debug("received chunk: {} ".format(byte_chunk))
+            g_log.debug("pos: {} | {} --- BAD".format(frame1_start_pos, frame2_start_pos))
+            g_log.debug("incomplete segment: {} ".format(binascii.hexlify(stream)))
+            g_log.debug("received chunk: {} ".format(binascii.hexlify(byte_chunk)))
             continue
 
-        g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
+        g_log.debug("pos: {} | {} --- GOOD".format(frame1_start_pos, frame2_start_pos))
 
         if (frame2_start_pos != -1):
-            # frame2_start_pos could be smaller than frame1_start_pos
-            if frame2_start_pos < frame1_start_pos:
-                # start over with the stream from frame1 pos
-                stream = stream[frame1_start_pos:len(stream)]
-                continue
-
             # we have found at least two complete telegrams
             regex = binascii.unhexlify('28'+g_supplier.frame1_start_bytes_hex+'7c'+g_supplier.frame2_start_bytes_hex+'29')  # re = '(..|..)'
             l = re.split(regex, stream)

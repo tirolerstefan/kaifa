@@ -47,7 +47,7 @@ A template file `meter_template.json` can be recycled for this.
   "stopbits": "serial.STOPBITS_ONE",
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
-  "interval": 15,
+  "interval": 1,
   "supplier": "TINETZ",
   "export_format": "SOLARVIEW",
   "export_file_abspath": "/var/run/kaifareader/kaifa.txt",
