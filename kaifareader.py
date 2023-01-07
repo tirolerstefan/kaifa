@@ -83,6 +83,7 @@ class SupplierEVN(Supplier):
 class Constants:
     config_file = "/etc/kaifareader/meter.json"
     export_format_solarview = "SOLARVIEW"
+    export_format_json = "JSON"
 
 class DataType:
     NullData = 0x00
@@ -213,9 +214,7 @@ class Obis:
     RealPowerIn = to_bytes("1.0.1.7.0.255")
     RealPowerOut = to_bytes("1.0.2.7.0.255")
     RealEnergyIn = to_bytes("1.0.1.8.0.255")
-    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
     RealEnergyOut = to_bytes("1.0.2.8.0.255")
-    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
     ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
     ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
     Factor = to_bytes("01.0.13.7.0.255")
@@ -240,11 +239,17 @@ class Exporter:
 
         file.write("!\n")         # End byte
 
+    def _write_out_json(self, file):
+        json_object = json.dumps(self._export_map, indent=4)
+        file.write(json_object)
+
     def write_out(self):
         try:
             with open(self._file, "w") as f:
                 if self._format == Constants.export_format_solarview:
                     self._write_out_solarview(f)
+                elif self._format == Constants.export_format_json:
+                    self._write_out_json(f)
         except Exception as e:
             g_log.error("Error writing to file {}: {}".format(self._file, str(e)))
             return False
@@ -323,6 +328,18 @@ class Decrypt:
                 self.obis[obis_code] = octet
                 g_log.debug("OCTET: {}, {}".format(octet_len, octet))
 
+    def get_act_power_pos_kw(self):
+        if Obis.RealPowerIn in self.obis:
+            return self.obis[Obis.RealPowerIn] / 1000
+        else:
+            return None
+
+    def get_act_power_neg_kw(self):
+        if Obis.RealPowerOut in self.obis:
+            return self.obis[Obis.RealPowerOut] / 1000
+        else:
+            return None
+
     def get_act_energy_pos_kwh(self):
         if Obis.RealEnergyIn in self.obis:
             return self.obis[Obis.RealEnergyIn] / 1000
@@ -369,14 +386,14 @@ except Exception as e:
     print("Could not initialize logging system: " + str(e))
     sys.exit(20)
 
-
+# timeout must be < 5
 g_ser = serial.Serial(
         port = g_cfg.get_port(),
         baudrate = g_cfg.get_baud(),
         parity = g_cfg.get_parity(),
         stopbits = g_cfg.get_stopbits(),
         bytesize = g_cfg.get_bytesize(),
-        timeout = g_cfg.get_interval())
+        timeout = g_cfg.get_interval()) if g_cfg.get_interval() < 5 else 4
 
 if g_cfg.get_supplier().upper() == SupplierTINETZ.name:
     g_supplier = SupplierTINETZ()
@@ -388,7 +405,7 @@ else:
 # connect to mqtt broker
 if g_cfg.get_export_format() == 'MQTT':
     try:
-        mqtt_client = mqtt.Client("kaifareader")
+        mqtt_client = mqtt.Client(g_cfg.get_export_mqtt_basetopic())
         mqtt_client.on_connect = mqtt_on_connect
         mqtt_client.on_disconnect = mqtt_on_disconnect
         mqtt_client.username_pw_set(g_cfg.get_export_mqtt_user(), g_cfg.get_export_mqtt_password())
@@ -419,27 +436,25 @@ while True:
         frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
         frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
 
+        if(frame2_start_pos < frame1_start_pos):
+            stream = stream[frame1_start_pos:len(stream)]
+            frame1_start_pos = stream.find(g_supplier.frame1_start_bytes)
+            frame2_start_pos = stream.find(g_supplier.frame2_start_bytes)
+
         # fail as early as possible if we find the segment is not complete yet. 
         if (
-           (stream.find(g_supplier.frame1_start_bytes) < 0) or
-           (stream.find(g_supplier.frame2_start_bytes) <= 0) or
+           (frame1_start_pos < 0) or (frame2_start_pos <= 0) or
            (stream[-1:] != g_supplier.frame2_end_bytes) or
            (len(byte_chunk) == serial_read_chunk_size)
            ):  
-            g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
-            g_log.debug("incomplete segment: {} ".format(stream))
-            g_log.debug("received chunk: {} ".format(byte_chunk))
+            g_log.debug("pos: {} | {} --- BAD".format(frame1_start_pos, frame2_start_pos))
+            g_log.debug("incomplete segment: {} ".format(binascii.hexlify(stream)))
+            g_log.debug("received chunk: {} ".format(binascii.hexlify(byte_chunk)))
             continue
 
-        g_log.debug("pos: {} | {}".format(frame1_start_pos, frame2_start_pos))
+        g_log.debug("pos: {} | {} --- GOOD".format(frame1_start_pos, frame2_start_pos))
 
         if (frame2_start_pos != -1):
-            # frame2_start_pos could be smaller than frame1_start_pos
-            if frame2_start_pos < frame1_start_pos:
-                # start over with the stream from frame1 pos
-                stream = stream[frame1_start_pos:len(stream)]
-                continue
-
             # we have found at least two complete telegrams
             regex = binascii.unhexlify('28'+g_supplier.frame1_start_bytes_hex+'7c'+g_supplier.frame2_start_bytes_hex+'29')  # re = '(..|..)'
             l = re.split(regex, stream)
@@ -470,22 +485,37 @@ while True:
     dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
     dec.parse_all()
 
-    g_log.info("1.8.0: {}".format(str(dec.get_act_energy_pos_kwh())))
-    g_log.info("2.8.0: {}".format(str(dec.get_act_energy_neg_kwh())))
+    g_log.info("1.7.0: {} 2.7.0 {}".format(str(dec.get_act_power_pos_kw()), str(dec.get_act_power_neg_kw())))
+    g_log.info("1.8.0: {} 2.8.0 {}".format(str(dec.get_act_energy_pos_kwh()), str(dec.get_act_energy_neg_kwh())))
+
+    # export json
+    if g_cfg.get_export_format() == Constants.export_format_json:
+        exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
+        exp.set_value("1.7.0", dec.get_act_power_pos_kw())
+        exp.set_value("1.8.0", dec.get_act_energy_pos_kwh())
+        exp.set_value("2.7.0", dec.get_act_power_neg_kw())
+        exp.set_value("2.8.0", dec.get_act_energy_neg_kwh())
+        if not exp.write_out():
+            g_log.error("Could not export data")
+            sys.exit(50)
 
     # export solarview
-    if g_cfg.get_export_format() == 'SOLARVIEW':
+    if g_cfg.get_export_format() == Constants.export_format_solarview:
         exp = Exporter(g_cfg.get_export_file_abspath(), g_cfg.get_export_format())
-        exp.set_value(Obis.RealEnergyIn_S, dec.get_act_energy_pos_kwh())
-        exp.set_value(Obis.RealEnergyOut_S, dec.get_act_energy_neg_kwh())
+        exp.set_value("1.8.0", dec.get_act_energy_pos_kwh())
+        exp.set_value("2.8.0", dec.get_act_energy_neg_kwh())
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
 
     # export mqtt
     if g_cfg.get_export_format() == 'MQTT':
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyIn_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/1.7.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_power_pos_kw())
         g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
-        mqtt_pub_ret = mqtt_client.publish("{}/RealEnergyOut_S".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
+        mqtt_pub_ret = mqtt_client.publish("{}/2.7.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_power_neg_kw())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/1.8.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_pos_kwh())
+        g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
+        mqtt_pub_ret = mqtt_client.publish("{}/2.8.0".format(g_cfg.get_export_mqtt_basetopic()), dec.get_act_energy_neg_kwh())
         g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
 

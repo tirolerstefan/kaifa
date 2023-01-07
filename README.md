@@ -47,7 +47,7 @@ A template file `meter_template.json` can be recycled for this.
   "stopbits": "serial.STOPBITS_ONE",
   "bytesize": "serial.EIGHTBITS",
   "key_hex_string": "",
-  "interval": 15,
+  "interval": 1,
   "supplier": "TINETZ",
   "export_format": "SOLARVIEW",
   "export_file_abspath": "/var/run/kaifareader/kaifa.txt",
@@ -134,4 +134,13 @@ Press CTRL+C
 ### Background
 
 Possible by killing the process
+
+
+## TODO
+
+Add
+- 1.8.1 (HT)
+- 1.8.2 (NT)
+- 2.8.1 (HT-)
+- 2.8.2 (NT-)
 
