@@ -159,6 +159,12 @@ class Config:
         else:
             return self._config["file_export_abspath"]
 
+    def get_file_export_values(self):
+        if not "file_export_values" in self._config:
+            return None
+        else:
+            return self._config["file_export_values"]
+
     def get_mqtt_enabled(self):
         if not "mqtt_enabled" in self._config:
             return None
@@ -194,6 +200,12 @@ class Config:
             return None
         else:
             return self._config["mqtt_basetopic"]
+
+    def get_mqtt_values(self):
+        if not "mqtt_values" in self._config:
+            return None
+        else:
+            return self._config["mqtt_values"]
 
     def get_influxdb_enabled(self):
         if not "influxdb_enabled" in self._config:
@@ -231,36 +243,153 @@ class Config:
         else:
             return self._config["influxdb_measurement"]
 
+    def get_influxdb_values(self):
+        if not "influxdb_values" in self._config:
+            return None
+        else:
+            return self._config["influxdb_values"]
+
 class Obis:
     def to_bytes(code):
         return bytes([int(a) for a in code.split(".")])
-    VoltageL1 = to_bytes("01.0.32.7.0.255")
-    VoltageL1 = to_bytes("01.0.32.7.0.255")
-    VoltageL2 = to_bytes("01.0.52.7.0.255")
-    VoltageL3 = to_bytes("01.0.72.7.0.255")
-    CurrentL1 = to_bytes("1.0.31.7.0.255")
-    CurrentL2 = to_bytes("1.0.51.7.0.255")
-    CurrentL3 = to_bytes("1.0.71.7.0.255")
-    RealPowerIn = to_bytes("1.0.1.7.0.255")
-    RealPowerOut = to_bytes("1.0.2.7.0.255")
-    RealEnergyIn = to_bytes("1.0.1.8.0.255")
-    RealEnergyOut = to_bytes("1.0.2.8.0.255")
-    ReactiveEnergyIn = to_bytes("1.0.3.8.0.255")
-    ReactiveEnergyOut = to_bytes("1.0.4.8.0.255")
-    Factor = to_bytes("01.0.13.7.0.255")
-    DateAndTime = to_bytes("0.0.1.0.0.255")
-    DeviceNumber = to_bytes("0.0.96.1.0.255")
-    DeviceName = to_bytes("0.0.42.0.0.255")
-    RealEnergyIn_S = '1.8.0'   # String of Positive active energy (A+) total [Wh] (needed for export)
-    RealEnergyOut_S = '2.8.0'   # String of Negative active energy (A-) total [Wh] (needed for export)
+    VoltageL1 = {
+        "pos": "32.7.0",
+        "byte": to_bytes("01.0.32.7.0.255"),
+        "desc_name": "Voltage L1",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "VoltageL1_V"
+    }
+    VoltageL2 = {
+        "pos": "52.7.0",
+        "byte": to_bytes("01.0.52.7.0.255"),
+        "desc_name": "Voltage L2",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "VoltageL2_V"
+    }
+    VoltageL3 = {
+        "pos": "72.7.0",
+        "byte": to_bytes("01.0.72.7.0.255"),
+        "desc_name": "Voltage L3",
+        "unit": "V",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "VoltageL3_V"
+    }
+    CurrentL1 = {
+        "pos": "31.7.0",
+        "byte": to_bytes("1.0.31.7.0.255"),
+        "desc_name": "Current L1",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "CurrentL1_A"
+    }
+    CurrentL2 = {
+        "pos": "51.7.0",
+        "byte": to_bytes("1.0.51.7.0.255"),
+        "desc_name": "Current L2",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "CurrentL2_A"
+    }
+    CurrentL3 = {
+        "pos": "71.7.0",
+        "byte": to_bytes("1.0.71.7.0.255"),
+        "desc_name": "Current L3",
+        "unit": "A",
+        "mod": "round(self.obis[d['byte']],2)",
+        "field_name": "CurrentL3_A"
+    }
+    RealPowerIn = {
+        "pos": "1.7.0",
+        "byte": to_bytes("1.0.1.7.0.255"),
+        "desc_name": "Instantaneous Power In",
+        "unit": "W",
+        "mod": None,
+        "field_name": "InstantaneousPowerIn_W"
+    }
+    RealPowerOut = {
+        "pos": "2.7.0",
+        "byte": to_bytes("1.0.2.7.0.255"),
+        "desc_name": "Instantaneous Power Out",
+        "unit": "W",
+        "mod": None,
+        "field_name": "InstantaneousPowerOut_W"
+    }
+    RealEnergyIn = {
+        "pos": "1.8.0",
+        "byte": to_bytes("1.0.1.8.0.255"),
+        "desc_name": "Active Energy In",
+        "unit": "Wh",
+        "mod": None,
+        "field_name": "ActiveEnergyIn_Wh"
+    }
+    RealEnergyOut = {
+        "pos": "2.8.0",
+        "byte": to_bytes("1.0.2.8.0.255"),
+        "desc_name": "Active Energy Out",
+        "unit": "Wh",
+        "mod": None,
+        "field_name": "ActiveEnergyOut_Wh"
+    }
+    ReactiveEnergyInductive = {
+        "pos": "3.8.0",
+        "byte": to_bytes("1.0.3.8.0.255"),
+        "desc_name": "Reactive Energy Inductive",
+        "unit": "W",
+        "mod": None,
+        "field_name": "ReactiveEnergyInductive_var"
+    }
+    ReactiveEnergyCapacitive = {
+        "pos": "4.8.0",
+        "byte": to_bytes("1.0.4.8.0.255"),
+        "desc_name": "Reactive Energy Capacitive",
+        "unit": "W",
+        "mod": None,
+        "field_name": "ReactiveEnergyCapacitive_var"
+    }
+    PowerFactor = {
+        "pos": "13.7.0",
+        "byte": to_bytes("01.0.13.7.0.255"),
+        "desc_name": "Power Factor",
+        "unit": "",
+        "mod": "round(self.obis[d['byte']],3)",
+        "field_name": "PowerFactor"
+    }
+    DateAndTime = {
+        "pos": "0.1.0",
+        "byte": to_bytes("0.0.1.0.0.255"),
+        "desc_name": "Date and Time",
+        "unit": "",
+        "mod": None,
+        "field_name": "DateAndTime"
+    }
+    DeviceNumber = {
+        "pos": "0.96.1",
+        "byte": to_bytes("0.0.96.1.0.255"),
+        "desc_name": "Device Number",
+        "unit": "",
+        "mod": None,
+        "field_name": "DeviceNumber"
+    }
+    DeviceName = {
+        "pos": "0.42.0",
+        "byte": to_bytes("0.0.42.0.0.255"),
+        "desc_name": "Device Name",
+        "unit": "",
+        "mod": None,
+        "field_name": "DeviceName"
+    }
 
 class Exporter:
     def __init__(self, file):
         self._file = file
         self._export_map = {}
 
-    def set_value(self, obis_string, value):
-        self._export_map[obis_string] = value
+    def set_value(self, obis_string, value, unit):
+        self._export_map[obis_string] = {}
+        self._export_map[obis_string]["value"] = value
+        self._export_map[obis_string]["unit"] = unit
 
     def _write_out_solarview(self, file):
         file.write("/?!\n")       # Start bytes
@@ -268,7 +397,7 @@ class Exporter:
 
         for key in self._export_map.keys():
             # e.g. 1.8.0(005305.034*kWh)
-            file.write("{}({:010.3F}*kWh)\n".format(key, self._export_map[key]))
+            file.write("{}({:010.3F}*{})\n".format(key,self._export_map[key]['value'], self._export_map[key]['unit']))
 
         file.write("!\n")         # End byte
 
@@ -310,52 +439,84 @@ class Decrypt:
 
         g_log.debug(self._data_decrypted_hex)
 
-        # init OBIS values
-        self._act_energy_pos_kwh = 0
-        self._act_energy_neg_kwh = 0
-
     def parse_all(self):
-        decrypted = self._data_decrypted
-        pos = 0
-        total = len(decrypted)
-        self.obis = {}
-        while pos < total:
-            if decrypted[pos] != DataType.OctetString:
-                pos += 1
-                continue
-            if decrypted[pos + 1] != 6:
-                pos += 1
-                continue
-            obis_code = decrypted[pos + 2 : pos + 2 + 6]
-            data_type = decrypted[pos + 2 + 6]
-            pos += 2 + 6 + 1
+        try:
+            decrypted = self._data_decrypted
+            pos = 0
+            total = len(decrypted)
+            self.obis = {}
+            while pos < total:
+                if decrypted[pos] != DataType.OctetString:
+                    pos += 1
+                    continue
+                if decrypted[pos + 1] != 6:
+                    pos += 1
+                    continue
+                obis_code = decrypted[pos + 2 : pos + 2 + 6]
+                data_type = decrypted[pos + 2 + 6]
+                pos += 2 + 6 + 1
+                g_log.debug("OBIS code {} DataType {}".format(binascii.hexlify(obis_code),data_type))
+                if data_type == DataType.DoubleLongUnsigned:
+                    value = int.from_bytes(decrypted[pos : pos + 4], "big")
+                    scale = decrypted[pos + 4 + 3]
+                    if scale > 128: scale -= 256
+                    pos += 2 + 8
+                    self.obis[obis_code] = value*(10**scale)
+                    g_log.debug("DLU: {}, {}, {}".format(value, scale, value*(10**scale)))
+                    #print(obis)
+                elif data_type == DataType.LongUnsigned:
+                    value = int.from_bytes(decrypted[pos : pos + 2], "big")
+                    scale = decrypted[pos + 2 + 3]
+                    if scale > 128: scale -= 256
+                    pos += 8
+                    self.obis[obis_code] = value*(10**scale)
+                    g_log.debug("LU: {}, {}, {}".format(value, scale, value*(10**scale)))
+                elif data_type == DataType.OctetString:
+                    octet_len = decrypted[pos]
+                    octet = decrypted[pos + 1 : pos + 1 + octet_len]
+                    pos += 1 + octet_len + 2
+                    self.obis[obis_code] = octet
+                    g_log.debug("OCTET: {}, {}".format(octet_len, octet))
+            return True
+        except Exception as e:
+            g_log.error("Failed to decrypt data: " + str(e))
+            return False
 
-            g_log.debug("OBIS code {} DataType {}".format(binascii.hexlify(obis_code),data_type))
-            if data_type == DataType.DoubleLongUnsigned:
-                value = int.from_bytes(decrypted[pos : pos + 4], "big")
-                scale = decrypted[pos + 4 + 3]
-                if scale > 128: scale -= 256
-                pos += 2 + 8
-                self.obis[obis_code] = value*(10**scale)
-                g_log.debug("DLU: {}, {}, {}".format(value, scale, value*(10**scale)))
-                #print(obis)
-            elif data_type == DataType.LongUnsigned:
-                value = int.from_bytes(decrypted[pos : pos + 2], "big")
-                scale = decrypted[pos + 2 + 3]
-                if scale > 128: scale -= 256
-                pos += 8
-                self.obis[obis_code] = value*(10**scale)
-                g_log.debug("LU: {}, {}, {}".format(value, scale, value*(10**scale)))
-            elif data_type == DataType.OctetString:
-                octet_len = decrypted[pos]
-                octet = decrypted[pos + 1 : pos + 1 + octet_len]
-                pos += 1 + octet_len + 2
-                self.obis[obis_code] = octet
-                g_log.debug("OCTET: {}, {}".format(octet_len, octet))
+    def get_generic_name(self, name):
+        d = getattr(Obis, name)
+        if 'desc_name' in d:
+            return d['desc_name']
+        else:
+            return None
 
-    def getObisValue(self, obisCode):
-        if obisCode in self.obis:
-            return self.obis[obisCode]
+    def get_generic_position(self, name):
+        d = getattr(Obis, name)
+        if 'pos' in d:
+            return d['pos']
+        else:
+            return None
+
+    def get_generic_unit(self, name):
+        d = getattr(Obis, name)
+        if 'unit' in d:
+            return d['unit']
+        else:
+            return None
+
+    def get_generic_value(self, name):
+        d = getattr(Obis, name)
+        if d['byte'] in self.obis:
+            if d['mod'] != None:
+                return(eval(d['mod']))
+            else:
+                return self.obis[d['byte']]
+        else:
+            return None
+
+    def get_generic_field_name(self, name):
+        d = getattr(Obis, name)
+        if 'field_name' in d:
+            return d['field_name']
         else:
             return None
 
@@ -497,50 +658,38 @@ while True:
             break
 
     dec = Decrypt(g_supplier, frame1, frame2, g_cfg.get_key_hex_string())
-    dec.parse_all()
+    if not dec.parse_all():
+        continue
 
-    g_log.info("{}: {:.3f}kWh".format(Obis.RealEnergyIn_S, dec.getObisValue(Obis.RealEnergyIn)/1000))
-    g_log.info("{}: {:.3f}kWh".format(Obis.RealEnergyOut_S, dec.getObisValue(Obis.RealEnergyOut)/1000))
+    for key, value in g_cfg.get_file_export_values().items():
+        if value and dec.get_generic_value(key) != None:
+            g_log.info("{0:6}: {1:26}: {2:10}".format(dec.get_generic_position(key),dec.get_generic_name(key)+" ("+dec.get_generic_unit(key)+")",str(dec.get_generic_value(key))))
 
     # file export
     if g_cfg.get_file_export_enabled():
         exp = Exporter(g_cfg.get_file_export_abspath())
-        exp.set_value(Obis.RealEnergyIn_S, dec.getObisValue(Obis.RealEnergyIn)/1000)
-        exp.set_value(Obis.RealEnergyOut_S, dec.getObisValue(Obis.RealEnergyOut)/1000)
+        for key, value in g_cfg.get_file_export_values().items():
+            if value and dec.get_generic_value(key) != None:
+                exp.set_value(dec.get_generic_position(key), dec.get_generic_value(key), dec.get_generic_unit(key))
         if not exp.write_out():
             g_log.error("Could not export data")
             sys.exit(50)
 
-    # mqtt
+    # export mqtt
     if g_cfg.get_mqtt_enabled():
-        mqtt_client.publish("{}/VoltageL1".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL1)))
-        mqtt_client.publish("{}/VoltageL2".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL2)))
-        mqtt_client.publish("{}/VoltageL3".format(g_cfg.get_mqtt_basetopic()), "{:.1f}".format(dec.getObisValue(Obis.VoltageL3)))
-        mqtt_client.publish("{}/CurrentL1".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL1)))
-        mqtt_client.publish("{}/CurrentL2".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL2)))
-        mqtt_client.publish("{}/CurrentL3".format(g_cfg.get_mqtt_basetopic()), "{:.2f}".format(dec.getObisValue(Obis.CurrentL3)))
-        mqtt_client.publish("{}/RealPowerIn".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealPowerIn)))
-        mqtt_client.publish("{}/RealPowerOut".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealPowerOut)))
-        mqtt_client.publish("{}/RealEnergyIn".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealEnergyIn)))
-        mqtt_client.publish("{}/RealEnergyOut".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.RealEnergyOut)))
-        mqtt_client.publish("{}/ReactiveEnergyInductive".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.ReactiveEnergyIn)))
-        mqtt_client.publish("{}/ReactiveEnergyCapacitive".format(g_cfg.get_mqtt_basetopic()), "{:d}".format(dec.getObisValue(Obis.ReactiveEnergyOut)))
-        mqtt_client.publish("{}/DeviceNumber".format(g_cfg.get_mqtt_basetopic()), dec.getObisValue(Obis.DeviceNumber))
-        mqtt_client.publish("{}/DeviceName".format(g_cfg.get_mqtt_basetopic()), dec.getObisValue(Obis.DeviceName))
+        for key, value in g_cfg.get_mqtt_values().items():
+            if value and dec.get_generic_value(key) != None:
+                mqtt_pub_ret = mqtt_client.publish("{}/{}".format(g_cfg.get_mqtt_basetopic(),dec.get_generic_field_name(key)), dec.get_generic_value(key))
+                g_log.debug("MQTT: Publish message: rc: {} mid: {}".format(mqtt_pub_ret[0], mqtt_pub_ret[1]))
 
-    # influxdb
+    # export influxdb
     if g_cfg.get_influxdb_enabled():
-        p = Point(g_cfg.get_influxdb_measurement()) \
-            .field("VoltageL1", float(dec.getObisValue(Obis.VoltageL1))) \
-            .field("VoltageL2", float(dec.getObisValue(Obis.VoltageL2))) \
-            .field("VoltageL3", float(dec.getObisValue(Obis.VoltageL3))) \
-            .field("CurrentL1", float(dec.getObisValue(Obis.CurrentL1))) \
-            .field("CurrentL2", float(dec.getObisValue(Obis.CurrentL2))) \
-            .field("CurrentL3", float(dec.getObisValue(Obis.CurrentL3))) \
-            .field("RealPowerIn", int(dec.getObisValue(Obis.RealPowerIn))) \
-            .field("RealPowerOut", int(dec.getObisValue(Obis.RealPowerOut))) \
-            .field("RealEnergyIn", int(dec.getObisValue(Obis.RealEnergyIn))) \
-            .field("RealEnergyOut", int(dec.getObisValue(Obis.RealEnergyOut))) \
-            .field("ReactiveEnergyInductive", int(dec.getObisValue(Obis.ReactiveEnergyIn))) \
-            .field("ReactiveEnergyCapacitive", int(dec.getObisValue(Obis.ReactiveEnergyOut)))
-        influxdb_write_api.write(bucket=g_cfg.get_influxdb_bucket(), org=g_cfg.get_influxdb_org(), record=p)
+        p = Point(g_cfg.get_influxdb_measurement())
+        fields = 0
+        for key, value in g_cfg.get_influxdb_values().items():
+            if value and dec.get_generic_value(key) != None:
+                p.field(dec.get_generic_field_name(key), dec.get_generic_value(key))
+                fields += 1
+        if fields > 0:
+            influxdb_write_api.write(bucket=g_cfg.get_influxdb_bucket(), org=g_cfg.get_influxdb_org(), record=p)
+            g_log.debug("influxdb: Published values")

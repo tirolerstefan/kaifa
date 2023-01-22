@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-VERSION=3.0
+VERSION=4.1
 
 docker build -t phil1pp/kaifareader:$VERSION .
 docker push phil1pp/kaifareader:$VERSION
