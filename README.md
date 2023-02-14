@@ -37,38 +37,9 @@ parameters and your AES key.
 
 A template file `meter_template.json` can be recycled for this.
 
-```
-{
-  "loglevel": "logging.DEBUG",
-  "port": "/dev/ttyUSB0",
-  "baudrate": 2400,
-  "parity": "serial.PARITY_EVEN",
-  "stopbits": "serial.STOPBITS_ONE",
-  "bytesize": "serial.EIGHTBITS",
-  "key_hex_string": "",
-  "supplier": "KSMWest",
-  "file_export_enabled": true,
-  "file_export_abspath": "/etc/kaifareader/export.txt",
-  "mqtt_enabled": false,
-  "mqtt_server": "192.168.0.99",
-  "mqtt_port": 1883,
-  "mqtt_user": "",
-  "mqtt_password": "",
-  "mqtt_basetopic": "kaifareader",
-  "influxdb_enabled": false,
-  "influxdb_url": "http://192.168.0.99:8086",
-  "influxdb_token": "",
-  "influxdb_org": "local",
-  "influxdb_bucket": "kaifareader",
-  "influxdb_measurement": "smartmeter"
-}
-```
-
-The AES key format is "hex string", e.g. `a4f2d...`
-
 Please provide your electricity supplier by the field "supplier". Because each supplier uses its own security standard, 
 the telegrams differ. This script was tested with suppliers:
-- KSMWest
+- KSMWest (Kooperation Smartmeter West): Vorarlberg, Tirol, Salzburg
 - EVN
 
 ### Export
