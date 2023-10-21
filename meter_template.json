@@ -56,7 +56,7 @@
   "influxdb_token": "",
   "influxdb_org": "local",
   "influxdb_bucket": "kaifareader",
-  "influxdb_measurement": "smartmeter"
+  "influxdb_measurement": "smartmeter",
   "influxdb_values": {
     "VoltageL1": true,
     "VoltageL2": true,
